@@ -12,30 +12,38 @@ from utils import *
 from losses import *
 import Dataset
 from models.unet import UNet
+from models.vgg16_unet import *
 from models.pix2pix_networks import PixelDiscriminator
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config
 # from models.flownet2.models import FlowNet2SD
-from evaluate import val
+from evaluate_ft import val
 from torchvision.utils import save_image
 
 from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--batch_size', default=4, type=int)
-parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
+parser.add_argument('--dataset', default='CalTech', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
 parser.add_argument('--resume', default=None, type=str,
                     help='The pre-trained model to resume training with, pass \'latest\' or the model name.')
 parser.add_argument('--save_interval', default=1000, type=int, help='Save the model every [save_interval] iterations.')
 parser.add_argument('--val_interval', default=1000, type=int,
                     help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
+parser.add_argument('--model', default='vggunet', type=str, help='The model of Generator.')
+
+
 
 args = parser.parse_args()
 train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
-generator = UNet(input_channels=12, output_channel=3).cuda()
+# if train_cfg.model == 'UNet'
+
+# generator = UNet(input_channels=12, output_channel=3).cuda()
+
+generator = vgg16bn_unet().cuda()
 discriminator = PixelDiscriminator(input_nc=3).cuda()
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.g_lr)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
@@ -216,7 +224,7 @@ try:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
                     torch.save(model_dict, f'weights/{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'{train_cfg.dataset}_{step}.pth\'.')
+                    print(f'\nAlready saved: \'vgg_{train_cfg.dataset}_{step}.pth\'.')
                     
 
             step += 1
