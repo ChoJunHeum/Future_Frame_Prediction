@@ -5,12 +5,7 @@
 TBA
 
 ## Environments  
-PyTorch >= 1.1.  
-Python >= 3.6.  
-tensorboardX  
-cupy  
-sklearn  
-Other common packages.  
+TBA 
 
 ## Prepare
 - Download the ped2 and avenue datasets.  
