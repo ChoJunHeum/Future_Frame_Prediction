@@ -15,14 +15,15 @@ from utils import psnr_error
 import Dataset
 from models.unet import UNet
 
+from torchvision.utils import save_image
+from fid_score import *
+
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--trained_model', default=None, type=str, help='The pre-trained model to evaluate.')
 parser.add_argument('--show_curve', action='store_true',
                     help='Show and save the psnr curve real-timely, this drops fps.')
-parser.add_argument('--show_heatmap', action='store_true',
-                    help='Show and save the difference heatmap real-timely, this drops fps.')
-
+parser.add_argument('--fid', default=False, type=bool, help='Check FID Score')
 
 def val(cfg, model=None):
     if model:  # This is for testing during training.
@@ -40,48 +41,18 @@ def val(cfg, model=None):
     fps = 0
     psnr_group = []
 
-    if not model:
-        if cfg.show_curve:
-            fig = plt.figure("Image")
-            manager = plt.get_current_fig_manager()
-            manager.window.setGeometry(550, 200, 600, 500)
-            # This works for QT backend, for other backends, check this ⬃⬃⬃.
-            # https://stackoverflow.com/questions/7449585/how-do-you-set-the-absolute-position-of-figure-windows-with-matplotlib
-            plt.xlabel('frames')
-            plt.ylabel('psnr')
-            plt.title('psnr curve')
-            plt.grid(ls='--')
-
-            cv2.namedWindow('target frames', cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('target frames', 384, 384)
-            cv2.moveWindow("target frames", 100, 100)
-
-        if cfg.show_heatmap:
-            cv2.namedWindow('difference map', cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('difference map', 384, 384)
-            cv2.moveWindow('difference map', 100, 550)
+    dataset_name = cfg.dataset
 
     with torch.no_grad():
         for i, folder in enumerate(video_folders):
             dataset = Dataset.test_dataset(cfg, folder)
 
-            if not model:
-                name = folder.split('/')[-1]
-                fourcc = cv2.VideoWriter_fourcc('X', 'V', 'I', 'D')
-
-                if cfg.show_curve:
-                    video_writer = cv2.VideoWriter(f'results/{name}_video.avi', fourcc, 30, cfg.img_size)
-                    curve_writer = cv2.VideoWriter(f'results/{name}_curve.avi', fourcc, 30, (600, 430))
-
-                    js = []
-                    plt.clf()
-                    ax = plt.axes(xlim=(0, len(dataset)), ylim=(30, 45))
-                    line, = ax.plot([], [], '-b')
-
-                if cfg.show_heatmap:
-                    heatmap_writer = cv2.VideoWriter(f'results/{name}_heatmap.avi', fourcc, 30, cfg.img_size)
+            if not os.path.exists(f"results/{dataset_name}/f{i+1}"):
+                os.makedirs(f"results/{dataset_name}/f{i+1}")
 
             psnrs = []
+            save_num = 0
+
             for j, clip in enumerate(dataset):
                 input_np = clip[0:12, :, :]
                 target_np = clip[12:15, :, :]
@@ -91,38 +62,25 @@ def val(cfg, model=None):
                 G_frame = generator(input_frames)
                 test_psnr = psnr_error(G_frame, target_frame).cpu().detach().numpy()
                 psnrs.append(float(test_psnr))
+                res_temp = ((G_frame[0] + 1 ) / 2)[(2,1,0),...]
+                save_image(res_temp, f'results/{dataset_name}/f{i+1}/{save_num}_img.jpg')
+                save_num=save_num+1
 
-                if not model:
-                    if cfg.show_curve:
-                        cv2_frame = ((target_np + 1) * 127.5).transpose(1, 2, 0).astype('uint8')
-                        js.append(j)
-                        line.set_xdata(js)  # This keeps the existing figure and updates the X-axis and Y-axis data,
-                        line.set_ydata(psnrs)  # which is faster, but still not perfect.
-                        plt.pause(0.001)  # show curve
+                fid_num = 0
 
-                        cv2.imshow('target frames', cv2_frame)
-                        cv2.waitKey(1)  # show video
+                # for g, t in zip(G_frame, target_frame):
+                #     save_image(g, f'fid_img/avenue/gen/{fid_num}_gen_img.jpg')
+                #     save_image(t, f'fid_img/avenue/tar/{fid_num}_tar_img.jpg')
 
-                        video_writer.write(cv2_frame)  # Write original video frames.
+                #     fid_num=fid_num+1
 
-                        buffer = io.BytesIO()  # Write curve frames from buffer.
-                        fig.canvas.print_png(buffer)
-                        buffer.write(buffer.getvalue())
-                        curve_img = np.array(Image.open(buffer))[..., (2, 1, 0)]
-                        curve_writer.write(curve_img)
-
-                    if cfg.show_heatmap:
-                        diff_map = torch.sum(torch.abs(G_frame - target_frame).squeeze(), 0)
-                        diff_map -= diff_map.min()  # Normalize to 0 ~ 255.
-                        diff_map /= diff_map.max()
-                        diff_map *= 255
-                        diff_map = diff_map.cpu().detach().numpy().astype('uint8')
-                        heat_map = cv2.applyColorMap(diff_map, cv2.COLORMAP_JET)
-
-                        cv2.imshow('difference map', heat_map)
-                        cv2.waitKey(1)
-
-                        heatmap_writer.write(heat_map)  # Write heatmap frames.
+                #     fid = calculate_fid_given_paths(
+                #         paths=['fid_img/avenue/gen', 'fid_img/avenue/tar'],
+                #         batch_size=1,
+                #         device='cuda',
+                #         dims=2048
+                #     )
+                #     print("FID Score: ", fid)
 
                 torch.cuda.synchronize()
                 end = time.time()
@@ -133,12 +91,6 @@ def val(cfg, model=None):
 
             psnr_group.append(np.array(psnrs))
 
-            if not model:
-                if cfg.show_curve:
-                    video_writer.release()
-                    curve_writer.release()
-                if cfg.show_heatmap:
-                    heatmap_writer.release()
 
     print('\nAll frames were detected, begin to compute AUC.')
 
@@ -149,8 +101,10 @@ def val(cfg, model=None):
 
     scores = np.array([], dtype=np.float32)
     labels = np.array([], dtype=np.int8)
+
     for i in range(len(psnr_group)):
         distance = psnr_group[i]
+
         distance -= min(distance)  # distance = (distance - min) / (max - min)
         distance /= max(distance)
 

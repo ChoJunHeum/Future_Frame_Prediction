@@ -5,3 +5,7 @@ __pycache__/
 *.pth
 results
 images
+*.png
+*.jpg
+training_imgs
+datasets

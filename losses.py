@@ -4,14 +4,6 @@ import torch.nn.functional
 import numpy as np
 
 
-class Flow_Loss(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, gen_flows, gt_flows):
-        return torch.mean(torch.abs(gen_flows - gt_flows))
-
-
 class Intensity_Loss(nn.Module):
     def __init__(self):
         super().__init__()
