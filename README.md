@@ -5,11 +5,7 @@
 TBA
 
 ## Environments  
-<<<<<<< HEAD
 TBA
-=======
-TBA 
->>>>>>> refs/remotes/origin/main
 
 ## Prepare
 - Download the ped2, avenue, CalTech datasets.  
