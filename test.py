@@ -17,7 +17,7 @@ from models.RL_model import *
 from models.unet import UNet
 from models.pix2pix_networks import PixelDiscriminator
 from ft_config import update_config
-from evaluate import val
+from evaluate_ft import val
 from torchvision.utils import save_image
 
 from fid_score import *

@@ -31,17 +31,12 @@ parser.add_argument('--resume', default=None, type=str,
 parser.add_argument('--save_interval', default=1000, type=int, help='Save the model every [save_interval] iterations.')
 parser.add_argument('--val_interval', default=1000, type=int,
                     help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
-parser.add_argument('--model', default='vggunet', type=str, help='The model of Generator.')
-
 
 
 args = parser.parse_args()
 train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
-# if train_cfg.model == 'UNet'
-
-# generator = UNet(input_channels=12, output_channel=3).cuda()
 
 generator = vgg16bn_unet().cuda()
 discriminator = PixelDiscriminator(input_nc=3).cuda()
@@ -114,7 +109,6 @@ try:
             # When training discriminator, don't train generator, so use .detach() to cut off gradients.
             D_fl = discriminate_loss(discriminator(f_target), discriminator(FG_frame.detach()))
 
-                
             # Backward
             b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
             b_target = frame_1
@@ -131,7 +125,6 @@ try:
             D_bl = discriminate_loss(discriminator(b_target), discriminator(BG_frame.detach()))
 
             # Total Loss
-
             inte_l = inte_fl + inte_bl
             grad_l = grad_fl + grad_bl
 
@@ -141,12 +134,13 @@ try:
             D_l = D_fl + D_bl
 
             # Or just do .step() after all the gradients have been computed, like the following way:
-            optimizer_D.zero_grad()
-            D_l.backward()
             optimizer_G.zero_grad()
             G_l_t.backward()
-            optimizer_D.step()
             optimizer_G.step()
+            
+            optimizer_D.zero_grad()
+            D_l.backward()
+            optimizer_D.step()
 
             torch.cuda.synchronize()
             time_end = time.time()
