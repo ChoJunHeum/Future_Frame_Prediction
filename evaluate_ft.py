@@ -21,8 +21,6 @@ from fid_score import *
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--trained_model', default=None, type=str, help='The pre-trained model to evaluate.')
-parser.add_argument('--show_curve', action='store_true',
-                    help='Show and save the psnr curve real-timely, this drops fps.')
 parser.add_argument('--fid', default=False, type=bool, help='Check FID Score')
 
 def val(cfg, model=None):
@@ -45,6 +43,7 @@ def val(cfg, model=None):
 
     with torch.no_grad():
         for i, folder in enumerate(video_folders):
+
             dataset = Dataset.test_dataset(cfg, folder)
 
             if not os.path.exists(f"results/{dataset_name}/f{i+1}"):
@@ -54,6 +53,8 @@ def val(cfg, model=None):
             save_num = 0
 
             for j, clip in enumerate(dataset):
+                if(j == 10):
+                    break
                 input_np = clip[0:12, :, :]
                 target_np = clip[12:15, :, :]
                 input_frames = torch.from_numpy(input_np).unsqueeze(0).cuda()
@@ -90,24 +91,13 @@ def val(cfg, model=None):
                 print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(dataset)}, {fps:.2f} fps, PSNR: {sum(psnrs)/len(psnrs):.2f}', end='')
 
             psnr_group.append(np.array(psnrs))
-            print(psnr_group)
 
-    print(torch.mean(psnr_group))
-    return auc
-
+    return np.round(sum(psnr_group)/len(psnr_group),2)
 
 if __name__ == '__main__':
     args = parser.parse_args()
     test_cfg = update_config(args, mode='test')
     test_cfg.print_cfg()
-    val(test_cfg)
-    # Uncomment this to test the AUC mechanism.
-    # labels = [0,  0,   0,   0,   0,  1,   1,    1,   0,  1,   0,    0]
-    # scores = [0, 1/8, 2/8, 1/8, 1/8, 3/8, 6/8, 7/8, 5/8, 8/8, 2/8, 1/8]
-    # fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=1)
-    # print(fpr)
-    # print('~~~~~~~~~~~~`')
-    # print(tpr)
-    # print('~~~~~~~~~~~~`')
-    # print(thresholds)
-    # print('~~~~~~~~~~~~`')
+    psnr = val(test_cfg)
+
+    print(psnr)
