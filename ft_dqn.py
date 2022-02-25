@@ -17,7 +17,7 @@ from models.RL_model import *
 from models.unet import UNet
 from models.pix2pix_networks import PixelDiscriminator
 from ft_config import update_config
-from evaluate import val
+from evaluate_ft import val
 from torchvision.utils import save_image
 
 from fid_score import *
@@ -35,7 +35,7 @@ args = parser.parse_args()
 train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
-generator = UNet(input_channels=12, output_channel=3).cuda()
+generator = vgg16bn_unet().cuda()
 
 policy_net = Agent().cuda()
 target_net = Agent().cuda()
@@ -87,6 +87,8 @@ generator = generator.train()
 
 data_name = args.dataset
 
+# Metrics vars
+
 epi_reward = 0
 epi_cor = 0
 epi_count = 0
@@ -137,7 +139,6 @@ try:
                         action = torch.randint(2,(batch_size,)).cuda()
 
                     reward, cor_sum, count, psnr, true_cor, false_cor, cor = env.step_R(action, G_frame, target, answer)
-                    # print(torch.mean(psnr))
                     epi_reward = epi_reward + reward.sum().item()
                     epi_cor = epi_cor + cor_sum
                     epi_true_cor = epi_true_cor + true_cor
@@ -150,6 +151,8 @@ try:
 
                     epi_count = epi_count + count
                     epi_iq = epi_iq + psnr.sum().item()
+
+                    # Save Image #
 
                     # print(f"--------------- step: {step}-{i} ---------------")
                     # print("Answer: ", answer)
@@ -164,6 +167,7 @@ try:
 
                     #     save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{i}_G_frame.png')
                     #     save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{i}_T_frame_.png')
+
 
                     # 다음 state
                     next_input_frames = torch.cat((input_frames[:,3:12,:,:], G_frame), 1)
