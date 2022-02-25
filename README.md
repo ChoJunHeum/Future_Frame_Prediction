@@ -5,10 +5,14 @@
 TBA
 
 ## Environments  
+<<<<<<< HEAD
 TBA
+=======
+TBA 
+>>>>>>> refs/remotes/origin/main
 
 ## Prepare
-- Download the ped2 and avenue datasets.  
+- Download the ped2, avenue, CalTech datasets.  
 
 |USCD Ped2                                                                           | CUHK Avenue                                                                        | CalTech Pedestrian Dataset                          |
 |:----------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------:| :--------------------------------------------------:|
