@@ -117,8 +117,6 @@ try:
             for i in range(4,clip_len):
                 targets.append(clips[:, i*3:(i+1)*3, :, :].cuda())
 
-            print("target num: ",len(targets))
-            
             for index in indice:
                 if len(train_dataset.all_seqs[index]) == 0:
                     train_dataset.all_seqs[index] = list(range(len(train_dataset.videos[index]) - 4))
