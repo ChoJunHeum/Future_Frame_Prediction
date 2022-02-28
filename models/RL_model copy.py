@@ -75,6 +75,7 @@ class Agent(nn.Module):
         )
 
         self.classifier = nn.Sequential(
+            # nn.Linear(256*256*4*2, 256),
             nn.Linear(256*256*4*2, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
@@ -97,17 +98,18 @@ class Agent(nn.Module):
         x = self.conv_1(x)
         x = self.conv_2(x)
         x = self.conv_3(x)
-        x = self.conv_4(x)
+        # x = self.conv_4(x)
         
         y = self.conv_1_1(y)
         y = self.conv_2(y)
         y = self.conv_3(y)
-        y = self.conv_4(y)
+        # y = self.conv_4(y)
 
         x = x.view(x.size(0), -1)
         y = y.view(y.size(0), -1)
 
         xy = torch.cat([x,y], 1)
+        print(xy.shape)
 
         xy = self.classifier(xy)
         xy = F.softmax(xy, dim=1)

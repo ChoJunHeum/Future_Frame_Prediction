@@ -62,10 +62,24 @@ class Agent(nn.Module):
         )
 
         self.conv_4 = nn.Sequential(
-            nn.Conv2d(512, 256, 3, padding=1),
-            nn.BatchNorm2d(256),
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
             nn.ReLU(),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
+
+
+        self.conv_5 = nn.Sequential(
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.Conv2d(512, 256, 3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Conv2d(256, 256, 3, padding=1),
@@ -75,7 +89,7 @@ class Agent(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(256*256*2, 256),
+            nn.Linear(128*128*2, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, 128),
@@ -98,17 +112,20 @@ class Agent(nn.Module):
         x = self.conv_2(x)
         x = self.conv_3(x)
         x = self.conv_4(x)
+        x = self.conv_5(x)
         
         y = self.conv_1_1(y)
         y = self.conv_2(y)
         y = self.conv_3(y)
         y = self.conv_4(y)
+        y = self.conv_5(y)
+
 
         x = x.view(x.size(0), -1)
         y = y.view(y.size(0), -1)
 
+
         xy = torch.cat([x,y], 1)
-        # print(xy.shape)
         xy = self.classifier(xy)
         xy = F.softmax(xy, dim=1)
 

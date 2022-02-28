@@ -260,17 +260,17 @@ try:
                     # grad_fl = gradient_loss(G_frame[~cor_batch], target_batch[~cor_batch])
 
                     temp_num = 0
+                    # if step % 1000 == 0:
+                    #     for frame, target in zip(G_frame, target_batch):
+                            
+                    #         save_G_frame = ((G_frame[0] + 1) / 2)
+                    #         save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+                    #         save_target = ((target_batch[0] + 1) / 2)
+                    #         save_target = save_target.cpu().detach()[(2, 1, 0), ...]
 
-                    for frame, target in zip(G_frame, target_batch):
-                        
-                        save_G_frame = ((G_frame[0] + 1) / 2)
-                        save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
-                        save_target = ((target_batch[0] + 1) / 2)
-                        save_target = save_target.cpu().detach()[(2, 1, 0), ...]
-
-                        save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{temp_num}_G_frame.png')
-                        save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{temp_num}_T_frame_.png')
-                        temp_num += 1
+                    #         save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{temp_num}_G_frame.png')
+                    #         save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{temp_num}_T_frame_.png')
+                    #         temp_num += 1
 
                     inte_l = intensity_loss(G_frame, target_batch)
                     grad_l = gradient_loss(G_frame, target_batch)
@@ -317,11 +317,13 @@ try:
                     optimizer_R.zero_grad()
                     optimizer_G.zero_grad()
 
-                    loss.backward(retain_graph=True)
-                    optimizer_R.step()
+                    loss.backward()
                 
                     for param in policy_net.parameters():
                         param.grad.data.clamp_(-1, 1)
+
+                    optimizer_R.step()
+
                     # loss_G.backward()
                     # optimizer_G.step()
 
@@ -353,8 +355,8 @@ try:
                 training = False
                 model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                             'net_r': target_net.state_dict(), 'optimizer_r': optimizer_R.state_dict()}
-                torch.save(model_dict, f'weights/ft_{train_cfg.resume_g}_{step}.pth')
-                break
+                torch.save(model_dict, f'weights/ft_{data_name}_{step}.pth')
+                break_
 
 
 except KeyboardInterrupt:
