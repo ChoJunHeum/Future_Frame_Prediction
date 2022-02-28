@@ -15,6 +15,7 @@ import Dataset
 from rl_utils import *
 from models.RL_model import *
 from models.unet import UNet
+from models.vgg16_unet import *
 from models.pix2pix_networks import PixelDiscriminator
 from ft_config import update_config
 from evaluate_ft import val
@@ -116,8 +117,6 @@ try:
             for i in range(4,clip_len):
                 targets.append(clips[:, i*3:(i+1)*3, :, :].cuda())
 
-            print("target num: ",len(targets))
-            
             for index in indice:
                 if len(train_dataset.all_seqs[index]) == 0:
                     train_dataset.all_seqs[index] = list(range(len(train_dataset.videos[index]) - 4))
@@ -311,7 +310,7 @@ try:
 
                     # Compute Huber loss
                     criterion = nn.MSELoss()
-                    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+                    loss = criterion(expected_state_action_values.unsqueeze(1), state_action_values)
 
                     # Optimize the model
                     
