@@ -319,7 +319,9 @@ try:
 
                     loss.backward()
                 
-                    for param in policy_net.parameters():
+                    for name, param in policy_net.named_parameters():
+                        if name in ['classifier.12.weight']:
+                            print(name, param.grad.data)
                         param.grad.data.clamp_(-1, 1)
 
                     optimizer_R.step()
