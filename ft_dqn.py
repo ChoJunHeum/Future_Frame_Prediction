@@ -37,12 +37,15 @@ train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
 generator = vgg16bn_unet().cuda()
+discriminator = PixelDiscriminator(input_nc=3).cuda()
 
 policy_net = Agent().cuda()
 target_net = Agent().cuda()
 target_net.load_state_dict(policy_net.state_dict())
 
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.ft_g_lr)
+optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
+
 optimizer_R = torch.optim.Adam(policy_net.parameters(), lr=train_cfg.r_lr)
 
 memory = ReplayMemory(128)
@@ -54,7 +57,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if train_cfg.resume_g:
     generator.load_state_dict(torch.load(train_cfg.resume_g)['net_g'])
     optimizer_G.load_state_dict(torch.load(train_cfg.resume_g)['optimizer_g'])
-    print(f'Pre-trained generator has been loaded.\n')
+    optimizer_D.load_state_dict(torch.load(train_cfg.resume)['optimizer_d'])
+    print(f'Pre-trained generator and discriminator have been loaded.\n')    
 else:
     generator.apply(weights_init_normal)
     print('Generator is going to be trained from scratch.\n')
@@ -66,6 +70,7 @@ if train_cfg.resume_r:
     print(f'Pre-trained RL model has been loaded.\n')
 else:
     policy_net.apply(weights_init_normal)
+    discriminator.apply(weights_init_normal)
     target_net.load_state_dict(policy_net.state_dict())
     print('RL model is going to be trained from scratch.\n')
 
@@ -85,6 +90,8 @@ train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size,
 writer = SummaryWriter(f'tensorboard_log/ft_{train_cfg.dataset}_bs{batch_size}')
 training = True
 generator = generator.train()
+discriminator = discriminator.train()
+policy_net = policy_net.train()
 
 data_name = args.dataset
 
@@ -274,8 +281,10 @@ try:
 
                     inte_l = intensity_loss(G_frame, target_batch)
                     grad_l = gradient_loss(G_frame, target_batch)
+                    g_l = adversarial_loss(discriminator(G_frame))
 
-                    loss_G = 1. * inte_l + 1. * grad_l
+                    loss_G = 1. * inte_fl + 1. * grad_fl + 0.05 * g_l
+                    loss_D = discriminate_loss(discriminator(target_batch), discriminator(G_frame.detach()))
 
                     next_G_frame = generator(non_final_next_states)
                     next_cur_state = torch.cat([non_final_next_states, next_G_frame], 1)
@@ -316,6 +325,7 @@ try:
                     
                     optimizer_R.zero_grad()
                     optimizer_G.zero_grad()
+                    optimizer_D.zero_grad()
 
                     loss.backward()
                 
@@ -326,8 +336,12 @@ try:
 
                     optimizer_R.step()
 
-                    # loss_G.backward()
-                    # optimizer_G.step()
+                    loss_G.backward()
+                    optimizer_G.step()
+
+                    loss_D.backward()
+                    optimizer_D.step()
+
 
                 print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {iq:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}")
 

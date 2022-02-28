@@ -44,14 +44,14 @@ class Env():
             true_cor = true_cor + sum(action == answer).item()
 
         else:
-            reward = torch.mul(cor, 1)
+            reward = torch.mul(cor, .8)
             false_cor = false_cor + sum(action == answer).item()
 
         cor_sum = sum(cor).item()
 
         # print(action)
         # print(true_cor, total_cor, false_cor)
-        reward = reward - 1
+        reward = reward - .5
 
         return reward, cor_sum, total_len, psnr, true_cor, false_cor, cor
 
