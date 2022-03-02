@@ -57,7 +57,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if train_cfg.resume_g:
     generator.load_state_dict(torch.load(train_cfg.resume_g)['net_g'])
     optimizer_G.load_state_dict(torch.load(train_cfg.resume_g)['optimizer_g'])
-    optimizer_D.load_state_dict(torch.load(train_cfg.resume)['optimizer_d'])
+    optimizer_D.load_state_dict(torch.load(train_cfg.resume_g)['optimizer_d'])
     print(f'Pre-trained generator and discriminator have been loaded.\n')    
 else:
     generator.apply(weights_init_normal)
@@ -74,6 +74,10 @@ else:
     target_net.load_state_dict(policy_net.state_dict())
     print('RL model is going to be trained from scratch.\n')
 
+adversarial_loss = Adversarial_Loss().cuda()
+discriminate_loss = Discriminate_Loss().cuda()
+gradient_loss = Gradient_Loss(3).cuda()
+intensity_loss = Intensity_Loss().cuda()
 
 Transition = namedtuple('Transition', ('state','target', 'action', 'next_state','next_target','reward', 'episode','step', 'cor'))
 GAMMA = 0.98
@@ -210,10 +214,6 @@ try:
                 else:
                     iq = 0
                 
-                writer.add_scalar('finetuning/reward', rwd, global_step=step)
-                writer.add_scalar('finetuning/accracy', acc, global_step=step)
-                writer.add_scalar('finetuning/image_quality', iq, global_step=step)
-
                 # len(memory) : # of episodes
                 transitions = memory.sample(4)
 
@@ -259,32 +259,49 @@ try:
                     # reward_batch: torch.Size([batch_size * memory_sampling_size])                 ex: 32
                     # non_final_next_states: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,15,256,256
                     # non_final_next_target: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,3,256,256
-
+                    
                     G_frame = generator(state_batch)
                     cur_state = torch.cat([state_batch, G_frame], 1)
+
                     
-                    # inte_fl = intensity_loss(G_frame[~cor_batch], target_batch[~cor_batch])
-                    # grad_fl = gradient_loss(G_frame[~cor_batch], target_batch[~cor_batch])
+                    # inte_l = intensity_loss(G_frame[~cor_batch], target_batch[~cor_batch])
+                    # grad_l = gradient_loss(G_frame[~cor_batch], target_batch[~cor_batch])
 
                     temp_num = 0
-                    # if step % 1000 == 0:
-                    #     for frame, target in zip(G_frame, target_batch):
-                            
-                    #         save_G_frame = ((G_frame[0] + 1) / 2)
-                    #         save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
-                    #         save_target = ((target_batch[0] + 1) / 2)
-                    #         save_target = save_target.cpu().detach()[(2, 1, 0), ...]
 
-                    #         save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{temp_num}_G_frame.png')
-                    #         save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{temp_num}_T_frame_.png')
-                    #         temp_num += 1
+                    # Save img
+                    # ft_save_img(data_name, step, iter, G_frame, target_batch, 1000)
+
+                    # for s, state in enumerate(state_batch):
+                    #     for k in range(4):
+                    #         f = state[k*3:(k+1)*3]
+                    #         save_G_frame = ((f + 1) / 2)
+                    #         save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+                    #         save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{s}_state_{k}.png')
+                            
+
+                    # batch_num = 0
+                    # for frame, tar in zip(G_frame, target_batch):
+                    #     save_G_frame = ((frame + 1) / 2)
+                    #     save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+                    #     save_target = ((tar + 1) / 2)
+                    #     save_target = save_target.cpu().detach()[(2, 1, 0), ...]
+
+                    #     save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{batch_num}_G_frame.png')
+                    #     save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{batch_num}_T_frame_.png')
+
+                    #     batch_num = batch_num + 1
+            
+
 
                     inte_l = intensity_loss(G_frame, target_batch)
                     grad_l = gradient_loss(G_frame, target_batch)
                     g_l = adversarial_loss(discriminator(G_frame))
 
-                    loss_G = 1. * inte_fl + 1. * grad_fl + 0.05 * g_l
+
+                    loss_G = 1. * inte_l + 1. * grad_l + 0.05 * g_l
                     loss_D = discriminate_loss(discriminator(target_batch), discriminator(G_frame.detach()))
+
 
                     next_G_frame = generator(non_final_next_states)
                     next_cur_state = torch.cat([non_final_next_states, next_G_frame], 1)
@@ -327,23 +344,41 @@ try:
                     optimizer_G.zero_grad()
                     optimizer_D.zero_grad()
 
-                    loss.backward()
+                    loss.backward(retain_graph=True)
                 
                     for name, param in policy_net.named_parameters():
-                        if name in ['classifier.12.weight']:
-                            print(name, param.grad.data)
+                        # print(name, param.grad)
                         param.grad.data.clamp_(-1, 1)
 
                     optimizer_R.step()
 
-                    loss_G.backward()
+                    loss_G.backward()     
+                    for name, param in generator.named_parameters():
+                        if 'encoder' not in name:
+                            param.grad.data.clamp_(-1, 1)  
                     optimizer_G.step()
 
                     loss_D.backward()
                     optimizer_D.step()
 
+                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {iq:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}| Loss_D: {loss_D:.2f}| inte_l: {inte_l:.2f}| grad_l: {grad_l:.2f}")
 
-                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {iq:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}")
+                writer.add_scalar('finetuning/reward', rwd, global_step=step)
+                writer.add_scalar('finetuning/accracy', acc, global_step=step)
+                writer.add_scalar('finetuning/true_accracy', acc, global_step=step)
+                writer.add_scalar('finetuning/falseaccracy', acc, global_step=step)
+
+                writer.add_scalar('finetuning/image_quality', iq, global_step=step)
+
+                writer.add_scalar('finetuning/reward', rwd, global_step=step)
+                writer.add_scalar('finetuning/accracy', acc, global_step=step)
+                writer.add_scalar('finetuning/image_quality', iq, global_step=step)
+
+                writer.add_scalar('finetuning/reward', rwd, global_step=step)
+                writer.add_scalar('finetuning/accracy', acc, global_step=step)
+                writer.add_scalar('finetuning/image_quality', iq, global_step=step)
+
+
 
                 epi_reward = 0
                 epi_cor = 0
@@ -376,7 +411,7 @@ try:
 
 
 except KeyboardInterrupt:
-    print(f'\nStop early, model saved: \'latest_{train_cfg.dataset}_{step}.pth\'.\n')
+    print(f'\nStop early, final step: {step}')
 
     # if glob(f'weights/latest*'):
     #     os.remove(glob(f'weights/latest*')[0])
