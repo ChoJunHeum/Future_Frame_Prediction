@@ -6,6 +6,18 @@ from math import exp
 
 import matplotlib as plt
 
+def ft_save_img(data_name, step, iter, G_frame, target, img_sav_interval):
+
+    if step % img_sav_interval == 0:
+        save_G_frame = ((G_frame[0] + 1) / 2)
+        save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+        save_target = ((target[0] + 1) / 2)
+        save_target = save_target.cpu().detach()[(2, 1, 0), ...]
+
+        save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{iter}_G_frame.png')
+        save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{iter}_T_frame_.png')
+
+
 def log10(t):
     """
     Calculates the base-10 tensorboard_log of each element in t.
