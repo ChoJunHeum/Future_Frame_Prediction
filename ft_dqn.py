@@ -297,6 +297,7 @@ try:
                     inte_l = intensity_loss(G_frame, target_batch)
                     grad_l = gradient_loss(G_frame, target_batch)
                     g_l = adversarial_loss(discriminator(G_frame))
+                    psnr_score = psnr_error(G_frame, target_batch)
 
 
                     loss_G = 1. * inte_l + 1. * grad_l + 0.05 * g_l
@@ -343,27 +344,25 @@ try:
                     optimizer_R.zero_grad()
                     optimizer_G.zero_grad()
                     optimizer_D.zero_grad()
-
-                    loss_G.backward(retain_graph=True)     
-                    # for name, param in generator.named_parameters():
-                    #     if 'encoder' not in name:
-                    #         param.grad.data.clamp_(-1, 1)  
-                    optimizer_G.step()
-
-                    # loss.backward()
+                    
+                    loss.backward(retain_graph=True)
                 
-                    # for name, param in policy_net.named_parameters():
-                    #     # print(name, param.grad)
-                    #     param.grad.data.clamp_(-1, 1)
+                    for name, param in policy_net.named_parameters():
+                        # print(name, param.grad)
+                        param.grad.data.clamp_(-1, 1)
 
-                    # optimizer_R.step()
+                    optimizer_R.step()
 
-
+                    loss_G.backward()     
+                    for name, param in generator.named_parameters():
+                        if 'encoder' not in name:
+                            param.grad.data.clamp_(-1, 1)  
+                    optimizer_G.step()
 
                     loss_D.backward()
                     optimizer_D.step()
 
-                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {iq:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}| Loss_D: {loss_D:.2f}| inte_l: {inte_l:.2f}| grad_l: {grad_l:.2f}")
+                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {psnr_score:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}| Loss_D: {loss_D:.2f}| inte_l: {inte_l:.2f}| grad_l: {grad_l:.2f}")
 
                 writer.add_scalar('finetuning/reward', rwd, global_step=step)
                 writer.add_scalar('finetuning/accracy', acc, global_step=step)

@@ -159,6 +159,10 @@ try:
                 if step % 20 == 0:
                     time_remain = (train_cfg.iters - step) * iter_t
                     eta = str(datetime.timedelta(seconds=time_remain)).split('.')[0]
+
+                    print(FG_frame.shape, f_target.shape)
+                    print(BG_frame.shape, b_target.shape)
+                    
                     f_psnr = psnr_error(FG_frame, f_target)
                     b_psnr = psnr_error(BG_frame, b_target)
 
