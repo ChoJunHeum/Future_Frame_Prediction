@@ -260,7 +260,7 @@ try:
                     # non_final_next_states: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,15,256,256
                     # non_final_next_target: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,3,256,256
                     
-                    G_frame = generator(state_batch)
+                    G_frame = generator(state_batch.detach())
                     cur_state = torch.cat([state_batch, G_frame], 1)
 
                     
@@ -344,19 +344,21 @@ try:
                     optimizer_G.zero_grad()
                     optimizer_D.zero_grad()
 
-                    loss.backward(retain_graph=True)
-                
-                    for name, param in policy_net.named_parameters():
-                        # print(name, param.grad)
-                        param.grad.data.clamp_(-1, 1)
-
-                    optimizer_R.step()
-
-                    loss_G.backward()     
-                    for name, param in generator.named_parameters():
-                        if 'encoder' not in name:
-                            param.grad.data.clamp_(-1, 1)  
+                    loss_G.backward(retain_graph=True)     
+                    # for name, param in generator.named_parameters():
+                    #     if 'encoder' not in name:
+                    #         param.grad.data.clamp_(-1, 1)  
                     optimizer_G.step()
+
+                    # loss.backward()
+                
+                    # for name, param in policy_net.named_parameters():
+                    #     # print(name, param.grad)
+                    #     param.grad.data.clamp_(-1, 1)
+
+                    # optimizer_R.step()
+
+
 
                     loss_D.backward()
                     optimizer_D.step()

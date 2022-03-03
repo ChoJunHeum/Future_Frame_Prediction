@@ -14,13 +14,14 @@ from Dataset import Label_loader
 from utils import psnr_error
 import Dataset
 from models.unet import UNet
+from models.vgg16_unet import *
 
 from torchvision.utils import save_image
 from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
-parser.add_argument('--trained_model', default=None, type=str, help='The pre-trained model to evaluate.')
+parser.add_argument('--model', default=None, type=str, help='The pre-trained model to evaluate.')
 parser.add_argument('--fid', default=False, type=bool, help='Check FID Score')
 
 def val(cfg, model=None):
@@ -28,9 +29,9 @@ def val(cfg, model=None):
         generator = model
         generator.eval()
     else:
-        generator = UNet(input_channels=12, output_channel=3).cuda().eval()
-        generator.load_state_dict(torch.load('weights/' + cfg.trained_model)['net_g'])
-        print(f'The pre-trained generator has been loaded from \'weights/{cfg.trained_model}\'.\n')
+        generator = vgg16bn_unet().cuda().eval()
+        generator.load_state_dict(torch.load('weights/' + cfg.model)['net_g'])
+        print(f'The pre-trained generator has been loaded from \'weights/{cfg.model}\'.\n')
 
     video_folders = os.listdir(cfg.test_data)
     video_folders.sort()
@@ -53,7 +54,7 @@ def val(cfg, model=None):
             save_num = 0
 
             for j, clip in enumerate(dataset):
-                if(j == 10):
+                if(j == 100):
                     break
                 input_np = clip[0:12, :, :]
                 target_np = clip[12:15, :, :]
