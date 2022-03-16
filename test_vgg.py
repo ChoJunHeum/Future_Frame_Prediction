@@ -25,3 +25,5 @@ from torchsummary import summary as summary_
 
 generator = vgg16bn_unet()
 
+discriminator = PixelDiscriminator(input_nc=3).cuda()
+print(discriminator)

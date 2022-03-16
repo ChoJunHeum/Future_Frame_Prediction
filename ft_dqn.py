@@ -260,8 +260,15 @@ try:
                     # non_final_next_states: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,15,256,256
                     # non_final_next_target: torch.Size([batch_size * memory_sampling_size - final_episode])            ex: 28,3,256,256
                     
-                    G_frame = generator(state_batch.detach())
-                    cur_state = torch.cat([state_batch, G_frame], 1)
+                    frame_1 = state_batch[:, 0:3, :, :].cuda()  # (n, 12, 256, 256) 
+                    frame_2 = state_batch[:, 3:6, :, :].cuda()  # (n, 12, 256, 256) 
+                    frame_3 = state_batch[:, 6:9, :, :].cuda()  # (n, 12, 256, 256) 
+                    frame_4 = state_batch[:, 9:12, :, :].cuda()  # (n, 12, 256, 256) 
+
+                    f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1) 
+
+                    FG_frame = generator(f_input.detach())
+                    cur_state = torch.cat([state_batch, FG_frame], 1)
 
                     
                     # inte_l = intensity_loss(G_frame[~cor_batch], target_batch[~cor_batch])
@@ -280,29 +287,51 @@ try:
                     #         save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{s}_state_{k}.png')
                             
 
-                    # batch_num = 0
-                    # for frame, tar in zip(G_frame, target_batch):
-                    #     save_G_frame = ((frame + 1) / 2)
-                    #     save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
-                    #     save_target = ((tar + 1) / 2)
-                    #     save_target = save_target.cpu().detach()[(2, 1, 0), ...]
+                    batch_num = 0
+                    for frame, tar in zip(G_frame, target_batch):
+                        save_G_frame = ((frame + 1) / 2)
+                        save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+                        save_target = ((tar + 1) / 2)
+                        save_target = save_target.cpu().detach()[(2, 1, 0), ...]
 
-                    #     save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{batch_num}_G_frame.png')
-                    #     save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{batch_num}_T_frame_.png')
+                        save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{batch_num}_G_frame.png')
+                        save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{batch_num}_T_frame_.png')
 
-                    #     batch_num = batch_num + 1
+                        batch_num = batch_num + 1
             
+                    inte_fl = intensity_loss(FG_frame, target_batch)
+                    grad_fl = gradient_loss(FG_frame, target_batch)
+                    g_fl = adversarial_loss(discriminator(FG_frame))
+                    print(discriminator(FG_frame).shape)
 
+                    G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
+                    D_fl = discriminate_loss(discriminator(target_batch), discriminator(G_frame.detach()))
 
-                    inte_l = intensity_loss(G_frame, target_batch)
-                    grad_l = gradient_loss(G_frame, target_batch)
-                    g_l = adversarial_loss(discriminator(G_frame))
-                    psnr_score = psnr_error(G_frame, target_batch)
+                    b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
+                    b_target = frame_1
 
+                    BG_frame = generator(b_input)
 
-                    loss_G = 1. * inte_l + 1. * grad_l + 0.05 * g_l
-                    loss_D = discriminate_loss(discriminator(target_batch), discriminator(G_frame.detach()))
+                    inte_bl = intensity_loss(BG_frame, b_target)
+                    grad_bl = gradient_loss(BG_frame, b_target)
 
+                    g_bl = adversarial_loss(discriminator(BG_frame))
+                    G_bl_t = 1. * inte_bl + 1. * grad_bl + 0.05 * g_bl
+
+                    # When training discriminator, don't train generator, so use .detach() to cut off gradients.
+                    D_bl = discriminate_loss(discriminator(b_target), discriminator(BG_frame.detach()))
+
+                    # Total Loss
+                    inte_l = inte_fl + inte_bl
+                    grad_l = grad_fl + grad_bl
+                    g_l = g_fl + g_bl
+
+                    G_l_t = G_fl_t + G_bl_t
+                    D_l = D_fl + D_bl
+
+                    f_psnr = psnr_error(FG_frame, target_batch)
+                    b_psnr = psnr_error(BG_frame, b_target)
+                    psnr_score = (f_psnr + b_psnr)/2
 
                     next_G_frame = generator(non_final_next_states)
                     next_cur_state = torch.cat([non_final_next_states, next_G_frame], 1)
@@ -337,32 +366,28 @@ try:
 
                     # Compute Huber loss
                     criterion = nn.MSELoss()
-                    loss = criterion(expected_state_action_values.unsqueeze(1), state_action_values)
-
+                    R_l = criterion(expected_state_action_values.unsqueeze(1), state_action_values)
+                    # G_l_t = G_l_t + R_l
                     # Optimize the model
                     
                     optimizer_R.zero_grad()
                     optimizer_G.zero_grad()
                     optimizer_D.zero_grad()
-                    
-                    loss.backward(retain_graph=True)
+
+                    R_l.backward(retain_graph=True)
+                    G_l_t.backward()
                 
                     for name, param in policy_net.named_parameters():
                         # print(name, param.grad)
                         param.grad.data.clamp_(-1, 1)
-
                     optimizer_R.step()
-
-                    loss_G.backward()     
-                    for name, param in generator.named_parameters():
-                        if 'encoder' not in name:
-                            param.grad.data.clamp_(-1, 1)  
                     optimizer_G.step()
-
-                    loss_D.backward()
+                    
+                    D_l.backward()
                     optimizer_D.step()
 
-                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {psnr_score:.2f} | Loss_R: {loss:.2f} | Loss_G: {loss_G:.2f}| Loss_D: {loss_D:.2f}| inte_l: {inte_l:.2f}| grad_l: {grad_l:.2f}")
+
+                print(f"{step} | Reward: {rwd:.2f} | Accuracy: {acc:.2f}%, | T: {true_acc:.2f}%({epi_true_cor}/{epi_true}), NT: {false_acc:.2f}%({epi_false_cor}/{epi_false}) | PSNR: {psnr_score:.2f} | Loss_R: {R_l:.2f} | Loss_G: {G_l_t:.2f} | Loss_D: {D_l:.2f} | inte_l: {inte_l:.2f} | grad_l: {grad_l:.2f} | g_l: {g_l:.2f}")
 
                 writer.add_scalar('finetuning/reward', rwd, global_step=step)
                 writer.add_scalar('finetuning/accracy', acc, global_step=step)
@@ -395,8 +420,10 @@ try:
                     
             if step % train_cfg.save_interval == 0:
                 model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
+                        'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict(),
                         'net_r': target_net.state_dict(), 'optimizer_r': optimizer_R.state_dict()}
-                print(f'\nAlready saved: \'ft_{train_cfg.dataset}_{step}.pth\'.')
+                torch.save(model_dict, f'weights/ft_justG_{train_cfg.dataset}_{step}.pth')
+                print(f'\nAlready saved: \'ftms_justG_{train_cfg.dataset}_{step}.pth\'.')
 
             if step % TARGET_UPDATE == 0:
                 print("Update Target Network.")
@@ -407,7 +434,7 @@ try:
                 training = False
                 model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                             'net_r': target_net.state_dict(), 'optimizer_r': optimizer_R.state_dict()}
-                torch.save(model_dict, f'weights/ft_{data_name}_{step}.pth')
+                torch.save(model_dict, f'weights/ft_justG_{data_name}_{step}.pth')
                 break_
 
 
