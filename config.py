@@ -11,7 +11,7 @@ if not os.path.exists('results'):
     os.mkdir('results')
 
 share_config = {'mode': 'training',
-                'dataset': 'avenue',
+                'dataset': 'CalTech',
                 'img_size': (256, 256),
                 'data_root': '/home/chojh21c/ADGW/Future_Frame_Prediction/datasets/'}  # remember the final '/'
 
