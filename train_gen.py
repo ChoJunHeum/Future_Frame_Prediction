@@ -14,6 +14,7 @@ import Dataset
 from models.unet import UNet
 from models.vgg16_unet import *
 from models.pix2pix_networks import PixelDiscriminator
+from models.convLSTM_networks import ConvLstmGenerator
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config
 # from models.flownet2.models import FlowNet2SD
@@ -24,6 +25,7 @@ from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--batch_size', default=4, type=int)
+parser.add_argument('--model', default='ConvLSTM', type=str)
 parser.add_argument('--dataset', default='CalTech', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
 parser.add_argument('--resume', default=None, type=str,
@@ -38,7 +40,13 @@ train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
 
-generator = vgg16bn_unet().cuda()
+if train_cfg.model == 'ConvLSTM':
+    generator = ConvLstmGenerator().cuda()
+elif train_cfg.model == 'vgg16bn_unet':
+    generator = vgg16bn_unet().cuda()
+
+# print(generator)
+# quit()
 discriminator = PixelDiscriminator(input_nc=3).cuda()
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.g_lr)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
@@ -50,7 +58,7 @@ if train_cfg.resume:
     optimizer_D.load_state_dict(torch.load(train_cfg.resume)['optimizer_d'])
     print(f'Pre-trained generator and discriminator have been loaded.\n')
 else:
-    generator.apply(weights_init_normal)
+    # generator.apply(weights_init_normal)
     discriminator.apply(weights_init_normal)
     print('Generator and discriminator are going to be trained from scratch.\n')
 
@@ -66,7 +74,7 @@ train_dataloader = DataLoader(dataset=train_dataset, batch_size=train_cfg.batch_
                               shuffle=True, num_workers=4, drop_last=True)
 
 
-writer = SummaryWriter(f'tensorboard_log/{train_cfg.dataset}_bs{train_cfg.batch_size}')
+writer = SummaryWriter(f'tensorboard_log/{train_cfg.model}_{train_cfg.dataset}_bs{train_cfg.batch_size}')
 start_iter = int(train_cfg.resume.split('_')[-1].split('.')[0]) if train_cfg.resume else 0
 training = True
 generator = generator.train()
@@ -99,6 +107,8 @@ try:
 
             # Forward
             FG_frame = generator(f_input)
+            # print(f_input.shape)
+            # print(FG_frame.shape)
 
             inte_fl = intensity_loss(FG_frame, f_target)
             grad_fl = gradient_loss(FG_frame, f_target)
@@ -160,8 +170,8 @@ try:
                     time_remain = (train_cfg.iters - step) * iter_t
                     eta = str(datetime.timedelta(seconds=time_remain)).split('.')[0]
 
-                    print(FG_frame.shape, f_target.shape)
-                    print(BG_frame.shape, b_target.shape)
+                    # print(FG_frame.shape, f_target.shape)
+                    # print(BG_frame.shape, b_target.shape)
                     
                     f_psnr = psnr_error(FG_frame, f_target)
                     b_psnr = psnr_error(BG_frame, b_target)

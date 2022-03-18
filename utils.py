@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 from math import exp
+import torch.nn as nn
 
 import matplotlib as plt
 
@@ -83,8 +84,11 @@ def psnr_error_ft(gen_frames, gt_frames):
 def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
+        # print(m)
+    # if isinstance(m, nn.Conv2d):
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
+    # if isinstance(m, nn.BatchNorm2d):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
