@@ -34,6 +34,7 @@ def update_config(args=None, mode=None):
     share_config['dataset'] = args.dataset
 
     if mode == 'train':
+        share_config['model'] = args.model
         share_config['batch_size'] = args.batch_size
         share_config['train_data'] = share_config['data_root'] + args.dataset + '/training/'
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
