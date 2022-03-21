@@ -15,6 +15,8 @@ from models.unet import UNet
 from models.vgg16_unet import *
 from models.pix2pix_networks import PixelDiscriminator
 from models.convLSTM_networks import ConvLstmGenerator
+from models.residual_model import RetroNet
+
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config
 # from models.flownet2.models import FlowNet2SD
@@ -44,6 +46,8 @@ if train_cfg.model == 'ConvLSTM':
     generator = ConvLstmGenerator().cuda()
 elif train_cfg.model == 'vgg16bn_unet':
     generator = vgg16bn_unet().cuda()
+elif train_cfg.model == 'RetroNet':
+    generator = RetroNet().cuda()
 
 # print(generator)
 # quit()
@@ -231,8 +235,13 @@ try:
                 if step % train_cfg.save_interval == 0:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/lstm_{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'lstm_{train_cfg.dataset}_{step}.pth\'.')
+                    torch.save(model_dict, f'weights/res_{train_cfg.dataset}_{step}.pth')
+                    print(f'\nAlready saved: \'res_{train_cfg.dataset}_{step}.pth\'.')
+
+                if step % train_cfg.val_interval == 0:
+                    val_psnr = val(train_cfg, model=generator)
+                    writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
+                    generator.train()
                     
 
             step += 1

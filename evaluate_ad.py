@@ -14,6 +14,7 @@ from Dataset import Label_loader
 from utils import psnr_error
 import Dataset
 from models.unet import UNet
+from models.convLSTM_networks import ConvLstmGenerator
 
 from torchvision.utils import save_image
 from fid_score import *
@@ -30,7 +31,7 @@ def val(cfg, model=None):
         generator = model
         generator.eval()
     else:
-        generator = UNet(input_channels=12, output_channel=3).cuda().eval()
+        generator = ConvLstmGenerator().cuda().eval()
         generator.load_state_dict(torch.load('weights/' + cfg.trained_model)['net_g'])
         print(f'The pre-trained generator has been loaded from \'weights/{cfg.trained_model}\'.\n')
 

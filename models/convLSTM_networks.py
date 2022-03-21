@@ -153,14 +153,3 @@ class ConvLstmGenerator(nn.Module):
         # print("decoder: ",out.shape)
         # quit()
         return out
-
-    
-if __name__ == "__main__":
-    rand = torch.ones([4, 12, 256, 256]).cuda()
-    t = Generator(12, 3).cuda()
-
-    r = t(rand)
-    print(r.shape)
-    print(r.grad_fn)
-    print(r.requires_grad)
-    print(r)
