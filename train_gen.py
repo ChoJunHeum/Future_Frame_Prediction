@@ -231,8 +231,8 @@ try:
                 if step % train_cfg.save_interval == 0:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'vgg_{train_cfg.dataset}_{step}.pth\'.')
+                    torch.save(model_dict, f'weights/lstm_{train_cfg.dataset}_{step}.pth')
+                    print(f'\nAlready saved: \'lstm_{train_cfg.dataset}_{step}.pth\'.')
                     
 
             step += 1
