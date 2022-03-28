@@ -235,11 +235,12 @@ try:
                 if step % train_cfg.save_interval == 0:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/res_{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'res_{train_cfg.dataset}_{step}.pth\'.')
+                    torch.save(model_dict, f'weights/{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
+                    print(f'\nAlready saved: \'{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
 
                 if step % train_cfg.val_interval == 0:
                     val_psnr = val(train_cfg, model=generator)
+                    print("Val Score: ",val_psnr)
                     writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
                     generator.train()
                     

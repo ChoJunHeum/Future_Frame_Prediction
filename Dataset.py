@@ -31,7 +31,7 @@ class train_dataset(Dataset):
         self.videos = []
         self.all_seqs = []
         for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
-            all_imgs = glob.glob(f'{folder}/*.png')
+            all_imgs = glob.glob(f'{folder}/*.jpg')
             all_imgs.sort()
             self.videos.append(all_imgs)
 
@@ -69,7 +69,7 @@ class ft_dataset:
         self.videos = []
         self.all_seqs = []
         for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
-            all_imgs = glob.glob(f'{folder}/*.png')
+            all_imgs = glob.glob(f'{folder}/*.jpg')
             all_imgs.sort()
             self.videos.append(all_imgs)
 
@@ -109,7 +109,7 @@ class ms_dataset:
         self.videos = []
         self.all_seqs = []
         for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
-            all_imgs = glob.glob(f'{folder}/*.png')
+            all_imgs = glob.glob(f'{folder}/*.jpg')
             all_imgs.sort()
             self.videos.append(all_imgs)
 
@@ -139,7 +139,7 @@ class test_dataset:
         self.img_h = cfg.img_size[0]
         self.img_w = cfg.img_size[1]
         self.clip_length = 5
-        self.imgs = glob.glob(video_folder + '/*.png')
+        self.imgs = glob.glob(video_folder + '/*.jpg')
         self.imgs.sort()
 
     def __len__(self):
