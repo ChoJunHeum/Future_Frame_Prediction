@@ -71,20 +71,6 @@ def val(cfg, model=None):
 
                 fid_num = 0
 
-                # for g, t in zip(G_frame, target_frame):
-                #     save_image(g, f'fid_img/avenue/gen/{fid_num}_gen_img.jpg')
-                #     save_image(t, f'fid_img/avenue/tar/{fid_num}_tar_img.jpg')
-
-                #     fid_num=fid_num+1
-
-                #     fid = calculate_fid_given_paths(
-                #         paths=['fid_img/avenue/gen', 'fid_img/avenue/tar'],
-                #         batch_size=1,
-                #         device='cuda',
-                #         dims=2048
-                #     )
-                #     print("FID Score: ", fid)
-
                 torch.cuda.synchronize()
                 end = time.time()
                 if j > 1:  # Compute fps by calculating the time used in one completed iteration, this is more accurate.
@@ -92,7 +78,7 @@ def val(cfg, model=None):
                 temp = end
                 print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(dataset)}, {fps:.2f} fps, PSNR: {sum(psnrs)/len(psnrs):.2f}', end='')
 
-            psnr_group.append(np.array(psnrs))
+            psnr_group.append(sum(psnrs)/len(psnrs))
 
     return np.round(sum(psnr_group)/len(psnr_group),2)
 
