@@ -8,14 +8,14 @@ from torch.utils.data import DataLoader
 import argparse
 import random
 
-from utils import *
+from util import *
 from losses import *
 import Dataset
-from models.unet import UNet
-from models.vgg16_unet import *
-from models.pix2pix_networks import PixelDiscriminator
-from models.convLSTM_networks import ConvLstmGenerator
-from models.residual_model import RetroNet
+from model.unet import UNet
+from model.vgg16_unet import *
+from model.pix2pix_networks import PixelDiscriminator
+from model.convLSTM_networks import ConvLstmGenerator
+from model.residual_model import RetroNet
 
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config

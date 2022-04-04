@@ -8,13 +8,13 @@ from PIL import Image
 import io
 from sklearn import metrics
 import matplotlib.pyplot as plt
-from models.vgg16_unet import *
+from model.vgg16_unet import *
 
 from config import update_config
 from Dataset import Label_loader
-from utils import psnr_error
+from util import psnr_error
 import Dataset
-from models.unet import UNet
+from model.unet import UNet
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
@@ -38,6 +38,7 @@ def val(cfg, model=None):
 
     fps = 0
     psnr_group = []
+    psnr_sum = []
 
     if not model:
         if cfg.show_curve:
@@ -54,7 +55,6 @@ def val(cfg, model=None):
             cv2.namedWindow('target frames', cv2.WINDOW_NORMAL)
             cv2.resizeWindow('target frames', 384, 384)
             cv2.moveWindow("target frames", 100, 100)
-
 
     with torch.no_grad():
         for i, folder in enumerate(video_folders):
@@ -84,25 +84,6 @@ def val(cfg, model=None):
                 test_psnr = psnr_error(G_frame, target_frame).cpu().detach().numpy()
                 psnrs.append(float(test_psnr))
 
-                if not model:
-                    if cfg.show_curve:
-                        cv2_frame = ((target_np + 1) * 127.5).transpose(1, 2, 0).astype('uint8')
-                        js.append(j)
-                        line.set_xdata(js)  # This keeps the existing figure and updates the X-axis and Y-axis data,
-                        line.set_ydata(psnrs)  # which is faster, but still not perfect.
-                        plt.pause(0.001)  # show curve
-
-                        cv2.imshow('target frames', cv2_frame)
-                        cv2.waitKey(1)  # show video
-
-                        video_writer.write(cv2_frame)  # Write original video frames.
-
-                        buffer = io.BytesIO()  # Write curve frames from buffer.
-                        fig.canvas.print_png(buffer)
-                        buffer.write(buffer.getvalue())
-                        curve_img = np.array(Image.open(buffer))[..., (2, 1, 0)]
-                        curve_writer.write(curve_img)
-
                 torch.cuda.synchronize()
                 end = time.time()
                 if j > 1:  # Compute fps by calculating the time used in one completed iteration, this is more accurate.
@@ -111,6 +92,7 @@ def val(cfg, model=None):
                 print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(dataset)}, {fps:.2f} fps.', end='')
 
             psnr_group.append(np.array(psnrs))
+            psnr_sum.append(sum(psnrs)/len(psnrs))
 
             if not model:
                 if cfg.show_curve:
@@ -125,6 +107,8 @@ def val(cfg, model=None):
 
     assert len(psnr_group) == len(gt), f'Ground truth has {len(gt)} videos, but got {len(psnr_group)} detected videos.'
 
+    print("psnr_group: ",len(psnr_group))
+
     scores = np.array([], dtype=np.float32)
     labels = np.array([], dtype=np.int8)
     for i in range(len(psnr_group)):
@@ -134,6 +118,8 @@ def val(cfg, model=None):
 
         scores = np.concatenate((scores, distance), axis=0)
         labels = np.concatenate((labels, gt[i][4:]), axis=0)  # Exclude the first 4 unpredictable frames in gt.
+    print("scores: ",len(scores))
+    print("labels: ",len(labels))
 
     assert scores.shape == labels.shape, \
         f'Ground truth has {labels.shape[0]} frames, but got {scores.shape[0]} detected frames.'
@@ -141,6 +127,7 @@ def val(cfg, model=None):
     fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=0)
     auc = metrics.auc(fpr, tpr)
     print(f'AUC: {auc}\n')
+    print(f"PSNR: {np.round(sum(psnr_sum)/len(psnr_sum),2)}")
     return auc
 
 

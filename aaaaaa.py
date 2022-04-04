@@ -1,21 +1,47 @@
-chk3 = 'y'
-while chk3 == 'y' : 
-    chk = chk2 = 1
-    while (chk == chk2 == 0) == False : #금액과 할부 기간이 정상입력 될 때까지 반복
-        if chk : 
-            a = input("금액을 입력하세요 : ") #금액 입력
-            if (len(a) == 0) : continue #Enter 입력으로 인한 오류 방지
-            chk = 0
-            for i in range(0, len(a) + 1) :
-                if i == len(a) : p = float(a); break #정상 입력 확인 후, 금액 저장
-                if a[i] > '9' or a[i] < '0' : chk = 1; print("input error"); break #입력값에 문자 포함 시, 에러 출력
-        else :
-            a = input("할부 기간을 입력하세요(금액을 다시 입력하시려면 back을 입력해주세요. 현재 금액 : %d) : " %p) #할부 기간 입력
-            if not a : continue #Enter 입력으로 인한 오류 방지
-            if (a == "back") : chk = 1; continue #금액 입력 구간으로 이동
-            chk2 = 0
-            for i in range(0, len(a)) :
-                if a[i] > '9' or a[i] < '0' : chk2 = 1; print("input error"); break #입력값에 문자 포함 시, 에러 출력
-    print("매달 납부할 금액은 %.0f입니다." %round(p / float(a))) #매달 남부할 금액 출력
-    chk3 = input("다시 계산하시겠습니까?(y/n) : ")
-print("End of process") # 종료
+import cv2
+import torch
+from PIL import Image
+
+from torchvision.utils import save_image
+from torchvision.transforms.functional import to_pil_image
+
+# Model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
+# Images
+for f in 'zidane.jpg', 'bus.jpg':
+    torch.hub.download_url_to_file('https://ultralytics.com/images/' + f, f)  # download 2 images
+im1 = Image.open('zidane.jpg')  # PIL image
+im2 = cv2.imread('bus.jpg')[..., ::-1]  # OpenCV image (BGR to RGB)
+imgs = [im1, im2]  # batch of images
+print(im1)
+# Inference
+results = model(im1, size=640)  # includes NMS
+
+print(results)  # im1 predictions (tensor)
+results.pandas().xyxy[0]  # im1 predictions (pandas)
+areas = results.xyxy[0][:,:4]
+
+print(type(results.xyxy))
+for i, area in enumerate(areas):
+    area = area.tolist()
+
+    xmin = area[0]
+    ymin = area[1]
+    xmax = area[2]
+    ymax = area[3]
+    
+    n_x = 2
+    n_y = 1.5
+
+    xmin = xmin - (n_x-1)*(xmax-xmin)
+    ymin = ymin - (n_y-1)*(ymax-ymin)
+    xmax = xmax + (n_x-1)*(xmax-xmin)
+    ymax = ymax + (n_y-1)*(ymax-ymin)
+
+    new_area = (xmin, ymin, xmax, ymax)
+
+    crop_image = im1.crop(new_area)
+    save_image(crop_image,f'crop_imgs/tester_{i}_15.png')
+    save_image(im1,f'crop_imgs/tester_{i}.png')
+    
+    print(new_area)

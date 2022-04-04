@@ -43,6 +43,7 @@ class train_dataset(Dataset):
         return len(self.videos)
 
     def __getitem__(self, indice):  # Indice decide which video folder to be loaded.
+
         one_folder = self.videos[indice]
 
         video_clip = []
@@ -59,6 +60,52 @@ class train_dataset(Dataset):
         video_clip = torch.from_numpy(video_clip)
 
         return indice, video_clip
+
+
+class train_target_dataset(Dataset):
+    """
+    No data augmentation.
+    Normalized from [0, 255] to [-1, 1], the channels are BGR due to cv2 and liteFlownet.
+    """
+
+    def __init__(self, cfg):
+        self.img_h = cfg.img_size[0] # 256
+        self.img_w = cfg.img_size[1] # 256
+        self.clip_length = 5
+
+        self.videos = []
+        self.all_seqs = []
+        for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
+            all_imgs = glob.glob(f'{folder}/*.jpg')
+            all_imgs.sort()
+            self.videos.append(all_imgs)
+
+            random_seq = list(range(len(all_imgs) - 4))
+            # random.shuffle(random_seq)
+            self.all_seqs.append(random_seq)
+
+    def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
+        return len(self.videos)
+
+    def __getitem__(self, indice):  # Indice decide which video folder to be loaded.
+
+        one_folder = self.videos[indice]
+
+        video_clip = []
+        #print(len(self.all_seqs), indice, len(self.all_seqs[indice]))
+        start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+        # print(f"START(indice): {start}({indice})")
+        start = 0
+
+        for i in range(start, start + self.clip_length):
+            video_clip.append(np_load_frame(one_folder[i], self.img_h, self.img_w))
+
+        video_clip = np.array(video_clip).reshape((-1, self.img_h, self.img_w))
+        # print(video_clip)
+        video_clip = torch.from_numpy(video_clip)
+
+        return indice, video_clip
+
 
 class ft_dataset:
     def __init__(self, cfg):

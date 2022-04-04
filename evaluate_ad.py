@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 
 from config import update_config
 from Dataset import Label_loader
-from utils import psnr_error
+from util import psnr_error
 import Dataset
-from models.unet import UNet
-from models.convLSTM_networks import ConvLstmGenerator
+from model.unet import UNet
+from model.convLSTM_networks import ConvLstmGenerator
 
 from torchvision.utils import save_image
 from fid_score import *
