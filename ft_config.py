@@ -36,13 +36,15 @@ def update_config(args=None, mode=None):
     if mode == 'train':
         share_config['batch_size'] = args.batch_size
         share_config['train_data'] = share_config['data_root'] + args.dataset + '/training/'
+        share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
+
         share_config['d_lr'] = 0.00001
         share_config['r_lr'] = 0.00002
         share_config['ft_g_lr'] = 0.00001
         share_config['resume_g'] = glob(f'weights/{args.resume_g}*')[0] if args.resume_g else None
         share_config['resume_r'] = glob(f'weights/{args.resume_r}*')[0] if args.resume_r else None
         share_config['save_interval'] = args.save_interval
-
+        share_config['val_interval'] = args.val_interval
         share_config['iters'] = args.iters
 
 

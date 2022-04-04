@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 
 from ft_config import update_config
 from Dataset import Label_loader
-from utils import psnr_error
+from util import psnr_error
 import Dataset
-from models.unet import UNet
-from models.vgg16_unet import *
-from models.convLSTM_networks import ConvLstmGenerator
+from model.unet import UNet
+from model.vgg16_unet import *
+from model.convLSTM_networks import ConvLstmGenerator
 
 from torchvision.utils import save_image
 from fid_score import *
@@ -68,8 +68,6 @@ def val(cfg, model=None):
                 res_temp = ((G_frame[0] + 1 ) / 2)[(2,1,0),...]
                 save_image(res_temp, f'results/{dataset_name}/f{i+1}/{save_num}_img.jpg')
                 save_num=save_num+1
-
-                fid_num = 0
 
                 torch.cuda.synchronize()
                 end = time.time()

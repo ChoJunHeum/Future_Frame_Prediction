@@ -9,16 +9,16 @@ import argparse
 import random
 import time
 
-from utils import *
+from util import *
 from losses import *
 import Dataset
 from rl_utils import *
-from models.RL_model import *
-from models.unet import UNet
-from models.vgg16_unet import *
-from models.pix2pix_networks import PixelDiscriminator
+from model.RL_model import *
+from model.unet import UNet
+from model.vgg16_unet import *
+from model.pix2pix_networks import PixelDiscriminator
 from ft_config import update_config
-from evaluate_ft import val
+from evaluate import val
 from torchvision.utils import save_image
 
 from fid_score import *
@@ -30,6 +30,8 @@ parser.add_argument('--iters', default=60000, type=int, help='The total iteratio
 parser.add_argument('--resume_g', default=None, type=str, help='The pre-trained generator model to finetuning with.')
 parser.add_argument('--resume_r', default=None, type=str, help='The pre-trained RL model to training with.')
 parser.add_argument('--save_interval', default=1000, type=int, help='Save the model every [save_interval] iterations.')
+parser.add_argument('--val_interval', default=1000, type=int,
+                    help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
 
 
 args = parser.parse_args()
@@ -288,21 +290,20 @@ try:
                             
 
                     batch_num = 0
-                    for frame, tar in zip(G_frame, target_batch):
-                        save_G_frame = ((frame + 1) / 2)
-                        save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
-                        save_target = ((tar + 1) / 2)
-                        save_target = save_target.cpu().detach()[(2, 1, 0), ...]
+                    # for frame, tar in zip(G_frame, target_batch):
+                    #     save_G_frame = ((frame + 1) / 2)
+                    #     save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+                    #     save_target = ((tar + 1) / 2)
+                    #     save_target = save_target.cpu().detach()[(2, 1, 0), ...]
 
-                        save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{batch_num}_G_frame.png')
-                        save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{batch_num}_T_frame_.png')
+                    #     save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{batch_num}_G_frame.png')
+                    #     save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{batch_num}_T_frame_.png')
 
-                        batch_num = batch_num + 1
+                    #     batch_num = batch_num + 1
             
                     inte_fl = intensity_loss(FG_frame, target_batch)
                     grad_fl = gradient_loss(FG_frame, target_batch)
                     g_fl = adversarial_loss(discriminator(FG_frame))
-                    print(discriminator(FG_frame).shape)
 
                     G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
                     D_fl = discriminate_loss(discriminator(target_batch), discriminator(G_frame.detach()))
@@ -429,13 +430,20 @@ try:
                 print("Update Target Network.")
                 target_net.load_state_dict(policy_net.state_dict())
 
+            if step % train_cfg.val_interval == 0:
+                auc = val(train_cfg, model=generator)
+                print("auc Score: ",auc)
+                writer.add_scalar('results/auc', auc, global_step=step)
+                generator.train()
+
+
             step += 1
             if step > train_cfg.iters:
                 training = False
                 model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                             'net_r': target_net.state_dict(), 'optimizer_r': optimizer_R.state_dict()}
                 torch.save(model_dict, f'weights/ft_justG_{data_name}_{step}.pth')
-                break_
+                break
 
 
 except KeyboardInterrupt:

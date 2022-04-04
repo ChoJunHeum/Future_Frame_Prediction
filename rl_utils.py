@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
 from PIL import Image
-from utils import *
+from util import *
 from torch.autograd import Variable
 from losses import *
 
