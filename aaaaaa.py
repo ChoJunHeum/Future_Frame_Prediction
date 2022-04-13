@@ -8,14 +8,16 @@ from torchvision.transforms.functional import to_pil_image
 # Model
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 # Images
-for f in 'zidane.jpg', 'bus.jpg':
-    torch.hub.download_url_to_file('https://ultralytics.com/images/' + f, f)  # download 2 images
 im1 = Image.open('zidane.jpg')  # PIL image
-im2 = cv2.imread('bus.jpg')[..., ::-1]  # OpenCV image (BGR to RGB)
-imgs = [im1, im2]  # batch of images
-print(im1)
+# im2 = cv2.imread('bus.jpg')[..., ::-1]  # OpenCV image (BGR to RGB)
+
+im2 = cv2.imread('bus.jpg')  # OpenCV image (BGR to RGB)
+# imgs = [im1, im2]  # batch of images
+
+im2 = torch.Tensor(im2)
+print(im2.shape)
 # Inference
-results = model(im1, size=640)  # includes NMS
+results = model(im2, size=640)  # includes NMS
 
 print(results)  # im1 predictions (tensor)
 results.pandas().xyxy[0]  # im1 predictions (pandas)
@@ -40,8 +42,8 @@ for i, area in enumerate(areas):
 
     new_area = (xmin, ymin, xmax, ymax)
 
-    crop_image = im1.crop(new_area)
-    save_image(crop_image,f'crop_imgs/tester_{i}_15.png')
-    save_image(im1,f'crop_imgs/tester_{i}.png')
+    crop_image = im2[xmin, ymin, xmax, ymax]
+    cv2.imwrite(f'crop_imgs/tester_{i}_15.png',crop_image)
+    cv2.imwrite(f'crop_imgs/tester_{i}.png',im2)
     
     print(new_area)

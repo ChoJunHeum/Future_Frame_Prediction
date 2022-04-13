@@ -1,7 +1,15 @@
+import torch
+from PIL import Image
+from glob import glob
+from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
+import argparse
+import random
+import cv2
+
 from curses import doupdate
 import os
 from glob import glob
-import cv2
 import time
 import datetime
 from tensorboardX import SummaryWriter
@@ -15,26 +23,25 @@ import Dataset
 from model.unet import UNet
 from model.vgg16_unet import *
 from model.pix2pix_networks import PixelDiscriminator
-from model.convLSTM_networks import ConvLstmGenerator
-from model.residual_model import RetroNet
 
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config
 # from models.flownet2.models import FlowNet2SD
 from evaluate_ft import val
 from torchvision.utils import save_image
-
+from torchvision.transforms.functional import to_pil_image
+from torchvision.transforms import ToTensor
 from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
-parser.add_argument('--batch_size', default=4, type=int)
+parser.add_argument('--batch_size', default=1, type=int)
 parser.add_argument('--model', default='vgg16bn_unet', type=str)
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
 parser.add_argument('--resume', default=None, type=str,
                     help='The pre-trained model to resume training with, pass \'latest\' or the model name.')
-parser.add_argument('--save_interval', default=1000, type=int, help='Save the model every [save_interval] iterations.')
-parser.add_argument('--val_interval', default=1000, type=int,
+parser.add_argument('--save_interval', default=10000, type=int, help='Save the model every [save_interval] iterations.')
+parser.add_argument('--val_interval', default=10000, type=int,
                     help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
 
 
@@ -43,15 +50,9 @@ train_cfg = update_config(args, mode='train')
 train_cfg.print_cfg()
 
 
-if train_cfg.model == 'ConvLSTM':
-    generator = ConvLstmGenerator().cuda()
-elif train_cfg.model == 'vgg16bn_unet':
-    generator = vgg16bn_unet().cuda()
-elif train_cfg.model == 'RetroNet':
-    generator = RetroNet().cuda()
+yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True).cuda()
 
-# print(generator)
-# quit()
+generator = vgg16bn_unet().cuda()
 discriminator = PixelDiscriminator(input_nc=3).cuda()
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.g_lr)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
@@ -78,7 +79,6 @@ train_dataset = Dataset.train_dataset(train_cfg)
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=train_cfg.batch_size,
                               shuffle=True, num_workers=4, drop_last=True)
 
-
 writer = SummaryWriter(f'tensorboard_log/{train_cfg.model}_{train_cfg.dataset}_bs{train_cfg.batch_size}')
 start_iter = int(train_cfg.resume.split('_')[-1].split('.')[0]) if train_cfg.resume else 0
 training = True
@@ -88,31 +88,108 @@ fid_s=30
 earlyFlag = False
 
 data_name = args.dataset
+TT = ToTensor()
 
 try:
     step = start_iter
     while training:
-
         for indice, clips in train_dataloader:
-
             frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 12, 256, 256) 
             frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 12, 256, 256) 
             frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 12, 256, 256) 
             frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 12, 256, 256) 
             f_target = clips[:, 12:15, :, :].cuda()  # (n, 12, 256, 256) 
-
-            f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
-
+                
             # pop() the used frame index, this can't work in train_dataset.__getitem__ because of multiprocessing.
             for index in indice:
                 train_dataset.all_seqs[index].pop()
                 if len(train_dataset.all_seqs[index]) == 0:
                     train_dataset.all_seqs[index] = list(range(len(train_dataset.videos[index]) - 4))
                     random.shuffle(train_dataset.all_seqs[index])
-
             # Forward
-            FG_frame = generator(f_input)
+            # FG_frame = generator(f_input)
+            
+            frame_1 = ((frame_1[0] + 1 ) / 2)[(2,1,0),...]
+            frame_2 = ((frame_2[0] + 1 ) / 2)[(2,1,0),...]
+            frame_3 = ((frame_3[0] + 1 ) / 2)[(2,1,0),...]
+            frame_4 = ((frame_4[0] + 1 ) / 2)[(2,1,0),...]
+            f_target = ((f_target[0] + 1 ) / 2)[(2,1,0),...]
 
+            img_1 = to_pil_image(frame_1)
+            img_2 = to_pil_image(frame_2)
+            img_3 = to_pil_image(frame_3)
+            img_4 = to_pil_image(frame_4)
+            img_t = to_pil_image(f_target)
+
+            results = yolo_model(img_1)
+            areas = results.xyxy[0]
+            
+            res_dat = results.pandas().xyxy
+            img_1.save(f'crop_imgs/tester.png')
+
+            new_areas = []
+
+            for i, area in enumerate(areas):
+                area = area.tolist()
+
+                xmin = area[0]
+                ymin = area[1]
+                xmax = area[2]
+                ymax = area[3]
+                    
+                n_x = 2
+                n_y = 1.5
+
+                xmin = xmin - (n_x-1)*(xmax-xmin)
+                ymin = ymin - (n_y-1)*(ymax-ymin)
+                xmax = xmax + (n_x-1)*(xmax-xmin)
+                ymax = ymax + (n_y-1)*(ymax-ymin)
+
+                new_areas.append([xmin, ymin, xmax, ymax])
+            
+            tframe_1 = torch.Tensor([])
+            tframe_2 = torch.Tensor([])
+            tframe_3 = torch.Tensor([])
+            tframe_4 = torch.Tensor([])
+            tframe_t = torch.Tensor([])
+            
+            for i, area in enumerate(new_areas):
+                crop_img_1 = TT(img_1.crop(area).resize((256,256))).view([1,3,256,256])
+                crop_img_2 = TT(img_2.crop(area).resize((256,256))).view([1,3,256,256])
+                crop_img_3 = TT(img_3.crop(area).resize((256,256))).view([1,3,256,256])
+                crop_img_4 = TT(img_4.crop(area).resize((256,256))).view([1,3,256,256])
+                crop_img_t = TT(img_t.crop(area).resize((256,256))).view([1,3,256,256])
+
+                # crop_img_1_save = ((crop_img_1[0]+1)/2)[(2,1,0),...]
+                # crop_img_2_save = ((crop_img_2[0]+1)/2)[(2,1,0),...]
+                # crop_img_3_save = ((crop_img_3[0]+1)/2)[(2,1,0),...]
+                # crop_img_4_save = ((crop_img_4[0]+1)/2)[(2,1,0),...]
+                # crop_img_t_save = ((crop_img_t[0]+1)/2)[(2,1,0),...]
+
+                # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
+                # save_image(crop_img_2,f'crop_imgs/tester_2_{i}.png')
+                # save_image(crop_img_3,f'crop_imgs/tester_3_{i}.png')
+                # save_image(crop_img_4,f'crop_imgs/tester_4_{i}.png')
+                # save_image(crop_img_t,f'crop_imgs/tester_t_{i}.png')
+
+
+                tframe_1 = torch.cat([tframe_1,crop_img_1],0)
+                tframe_2 = torch.cat([tframe_2,crop_img_2],0)
+                tframe_3 = torch.cat([tframe_3,crop_img_3],0)
+                tframe_4 = torch.cat([tframe_4,crop_img_4],0)
+                tframe_t = torch.cat([tframe_t,crop_img_t],0)
+                
+            bs_size = len(tframe_1)
+
+            frame_1 = tframe_1.cuda()
+            frame_2 = tframe_2.cuda()
+            frame_3 = tframe_3.cuda()
+            frame_4 = tframe_4.cuda()
+            f_target = tframe_t.cuda()
+
+
+            f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
+            FG_frame = generator(f_input)
 
             inte_fl = intensity_loss(FG_frame, f_target)
             grad_fl = gradient_loss(FG_frame, f_target)
@@ -121,13 +198,12 @@ try:
             G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
 
             # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            d_ft, _ = discriminator(f_target)
-            d_f_out_d, _ = discriminator(FG_frame.detach())
+            d_ft, d_ft_s = discriminator(f_target)
+            d_f_out_d, d_f_score_d = discriminator(FG_frame.detach())
             D_fl = discriminate_loss(d_ft, d_f_out_d)
+            D_fl_s = discriminate_loss(d_ft_s, d_f_score_d)
             
-            print("discriminator out: ", torch.mean(d_f_out), torch.max(d_f_out))
             _, predicted = torch.max(d_f_score, 1)
-            print("anomaly: ", predicted)
 
             # Backward
             b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
@@ -142,9 +218,10 @@ try:
             G_bl_t = 1. * inte_bl + 1. * grad_bl + 0.05 * g_bl
 
             # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            d_b_t, _ = discriminator(b_target)
-            d_b_out_d, _ = discriminator(BG_frame.detach())
+            d_b_t, d_bt_s = discriminator(b_target)
+            d_b_out_d, d_b_score_d = discriminator(BG_frame.detach())
             D_bl = discriminate_loss(d_b_t, d_b_out_d)
+            D_bl_s = discriminate_loss(d_bt_s, d_b_score_d)
 
             # Total Loss
             inte_l = inte_fl + inte_bl
@@ -153,7 +230,7 @@ try:
             g_l = g_fl + g_bl
             G_l_t = G_fl_t + G_bl_t
 
-            D_l = D_fl + D_bl
+            D_l = D_fl + D_bl + D_fl_s + D_bl_s
 
             # Or just do .step() after all the gradients have been computed, like the following way:
             optimizer_G.zero_grad()
@@ -163,6 +240,7 @@ try:
             optimizer_D.zero_grad()
             D_l.backward()
             optimizer_D.step()
+
 
             torch.cuda.synchronize()
             time_end = time.time()
@@ -195,8 +273,8 @@ try:
                     lr_d = optimizer_D.param_groups[0]['lr']
 
 
-                    print(f"[{step}]  inte_fl: {inte_fl:.3f} | inte_bl: {inte_bl:.3f} | grad_fl: {grad_fl:.3f} | grad_bl: {grad_bl:.3f} | "
-                        f"g_fl: {g_fl:.3f} | g_bl: {g_bl:.3f} | G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | "
+                    print(f"[{step}]  grad_fl: {grad_fl:.3f} | grad_bl: {grad_bl:.3f} | g_fl: {g_fl:.3f} | g_bl: {g_bl:.3f} "
+                        f"| G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | D_fl_s: {D_fl_s:.3f} | D_bl_s: {D_bl_s:.3f} | "
                         f"| f_psnr: {f_psnr:.3f} | b_psnr: {b_psnr:.3f} | ETA: {eta} | iter: {iter_t:.3f}s")
 
                     save_FG_frame = ((FG_frame[0] + 1) / 2)
@@ -243,8 +321,8 @@ try:
                 if step % train_cfg.save_interval == 0:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
+                    torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
+                    print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
 
                 if step % train_cfg.val_interval == 0:
                     val_psnr = val(train_cfg, model=generator)
@@ -258,9 +336,8 @@ try:
                 training = False
                 model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                             'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                torch.save(model_dict, f'weights/latest_{train_cfg.dataset}_{step}.pth')
+                torch.save(model_dict, f'weights/latest_target_{train_cfg.dataset}_{step}.pth')
                 break
-
 except KeyboardInterrupt:
     print(f'\nStop early, model saved: \'latest_{train_cfg.dataset}_{step}.pth\'.\n')
 

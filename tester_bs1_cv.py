@@ -5,6 +5,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 import argparse
 import random
+import cv2
 
 from util import *
 from losses import *
@@ -18,10 +19,11 @@ from config import update_config
 from evaluate_ft import val
 from torchvision.utils import save_image
 from torchvision.transforms.functional import to_pil_image
+from torchvision.transforms import ToTensor
 from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
-parser.add_argument('--batch_size', default=4, type=int)
+parser.add_argument('--batch_size', default=1, type=int)
 parser.add_argument('--model', default='vgg16bn_unet', type=str)
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
@@ -60,12 +62,11 @@ discriminate_loss = Discriminate_Loss().cuda()
 gradient_loss = Gradient_Loss(3).cuda()
 intensity_loss = Intensity_Loss().cuda()
 
-train_dataset = Dataset.train_dataset(train_cfg)
+train_dataset = Dataset.train_target_dataset(train_cfg)
 
 # Remember to set drop_last=True, because we need to use 4 frames to predict one frame.
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=train_cfg.batch_size,
                               shuffle=True, num_workers=4, drop_last=True)
-
 
 writer = SummaryWriter(f'tensorboard_log/{train_cfg.model}_{train_cfg.dataset}_bs{train_cfg.batch_size}')
 start_iter = int(train_cfg.resume.split('_')[-1].split('.')[0]) if train_cfg.resume else 0
@@ -76,16 +77,15 @@ fid_s=30
 earlyFlag = False
 
 data_name = args.dataset
+TT = ToTensor()
 
 step = start_iter
 while training:
     for indice, clips in train_dataloader:
-        frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 12, 256, 256) 
-        frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 12, 256, 256) 
-        frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 12, 256, 256) 
-        frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 12, 256, 256) 
-        f_target = clips[:, 12:15, :, :].cuda()  # (n, 12, 256, 256) 
-        f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
+
+        # clip: 5 * [cv2 tensor]
+        # cv2 tensor: 
+        
         # pop() the used frame index, this can't work in train_dataset.__getitem__ because of multiprocessing.
         for index in indice:
             train_dataset.all_seqs[index].pop()
@@ -94,50 +94,90 @@ while training:
                 random.shuffle(train_dataset.all_seqs[index])
         # Forward
         # FG_frame = generator(f_input)
-        frames = ((frame_1 + 1 ) / 2)[(0,3,2,1),...]
-        FG_save = frame_1[0]
 
-        save_image(frames[0],f'crop_imgs/testers.png')
+        frame_1 = clips[0][:,:,:,[2,1,0]]
+        frame_2 = clips[1][:,:,:,[2,1,0]]
+        frame_3 = clips[2][:,:,:,[2,1,0]]
+        frame_4 = clips[3][:,:,:,[2,1,0]]
+        f_target = clips[4][:,:,:,[2,1,0]]
 
-        img_0 = to_pil_image(frames[0])
-        img_1 = to_pil_image(frames[1])
-        img_2 = to_pil_image(frames[2])
-        img_3 = to_pil_image(frames[3])
-        
-        img_li = [img_0, img_1, img_2, img_3]
-        print(type(img_li[0]))
-        results = yolo_model(img_li)
-        print(type(img_li[0]))
+        print(frame_1.shape)
+        temp = frame_1.view([-1, 3,640, 360])
+        print(temp.shape)
+
+        results = yolo_model(temp)
+
+        print(results)
         quit()
-        areas = results.xyxy
+        
+        areas = results.xyxy[0]
         
         res_dat = results.pandas().xyxy
-        # print(res_dat)
+        cv2.imwrite(f'crop_imgs/tester.png', frame_1)
+        for i, area in enumerate(areas):
+            area = area.tolist()
 
-        for i, batches in enumerate(areas):
-            for j, area in enumerate(batches):
-                area = area.tolist()
-
-                xmin = area[0]
-                ymin = area[1]
-                xmax = area[2]
-                ymax = area[3]
+            xmin = area[0]
+            ymin = area[1]
+            xmax = area[2]
+            ymax = area[3]
                 
-                n_x = 2
-                n_y = 1.5
+            n_x = 2
+            n_y = 1.5
 
-                xmin = xmin - (n_x-1)*(xmax-xmin)
-                ymin = ymin - (n_y-1)*(ymax-ymin)
-                xmax = xmax + (n_x-1)*(xmax-xmin)
-                ymax = ymax + (n_y-1)*(ymax-ymin)
+            xmin = xmin - (n_x-1)*(xmax-xmin)
+            ymin = ymin - (n_y-1)*(ymax-ymin)
+            xmax = xmax + (n_x-1)*(xmax-xmin)
+            ymax = ymax + (n_y-1)*(ymax-ymin)
 
-                new_area = (xmin, ymin, xmax, ymax)
-                print(type(img_li[i]))
-                quit()
+            new_area = [xmin, ymin, xmax, ymax]
+            crop_image = frame_1[xmin, ymin, xmax, ymax]
 
-                crop_image = Image.fromarray(img_li[i]).crop(new_area)
-                crop_image.save(f'crop_imgs/tester_{i}_{j}_15.png')
-                Image.fromarray(img_li[i]).save(f'crop_imgs/tester_{i}_{j}.png')
-                
+            cv2.imwrite(f'crop_imgs/tester_{i}.png', crop_image)
+        
+        quit()
+
+        tframe_1 = torch.Tensor([])
+        tframe_2 = torch.Tensor([])
+        tframe_3 = torch.Tensor([])
+        tframe_4 = torch.Tensor([])
+        tframe_t = torch.Tensor([])
+        
+
+        for area in new_area:
+            crop_img_1 = TT(img_1.crop(new_area))
+            crop_img_2 = TT(img_2.crop(new_area))
+            crop_img_3 = TT(img_3.crop(new_area))
+            crop_img_4 = TT(img_4.crop(new_area))
+            crop_img_t = TT(img_t.crop(new_area))
+
+            print(crop_img_1.shape)
+            print(crop_img_1.view([-1,3,256,256]).shape)
+
+            torch.cat([tframe_1,crop_img_1],0)
+            torch.cat([tframe_2,crop_img_2],0)
+            torch.cat([tframe_3,crop_img_3],0)
+            torch.cat([tframe_4,crop_img_4],0)
+            torch.cat([tframe_t,crop_img_5],0)
+            
+            # target_data[0].append(crop_img_1)
+            # target_data[1].append(crop_img_2)
+            # target_data[2].append(crop_img_3)
+            # target_data[3].append(crop_img_4)
+            # target_data[4].append(crop_img_t)
+            
+        # train_X = torch.tensor(target_data)
+
+        print(tframe_1.shape)
+
+        quit()
+
+
+        crop_image = img.crop(new_area)
+
+        crop_image.save(f'crop_imgs/tester_{i}.png')
+        
+
+
 
         quit()

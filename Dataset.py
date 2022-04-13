@@ -7,6 +7,7 @@ import os
 import time
 import scipy.io as scio
 from torch.utils.data import Dataset
+from PIL import Image
 
 
 def np_load_frame(filename, resize_h, resize_w):
@@ -81,7 +82,6 @@ class train_target_dataset(Dataset):
             self.videos.append(all_imgs)
 
             random_seq = list(range(len(all_imgs) - 4))
-            # random.shuffle(random_seq)
             self.all_seqs.append(random_seq)
 
     def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
@@ -92,17 +92,15 @@ class train_target_dataset(Dataset):
         one_folder = self.videos[indice]
 
         video_clip = []
-        #print(len(self.all_seqs), indice, len(self.all_seqs[indice]))
+
         start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
-        # print(f"START(indice): {start}({indice})")
+
         start = 0
 
         for i in range(start, start + self.clip_length):
-            video_clip.append(np_load_frame(one_folder[i], self.img_h, self.img_w))
-
-        video_clip = np.array(video_clip).reshape((-1, self.img_h, self.img_w))
-        # print(video_clip)
-        video_clip = torch.from_numpy(video_clip)
+            img = cv2.imread(one_folder[i])
+ 
+            video_clip.append(img)
 
         return indice, video_clip
 
