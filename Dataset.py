@@ -15,6 +15,7 @@ def np_load_frame(filename, resize_h, resize_w):
     image_resized = cv2.resize(img, (resize_w, resize_h)).astype('float32')
     image_resized = (image_resized / 127.5) - 1.0  # to -1 ~ 1
     image_resized = np.transpose(image_resized, [2, 0, 1])  # to (C, W, H)
+    # image_resized: np.ndarray
     return image_resized
 
 

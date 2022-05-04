@@ -45,7 +45,7 @@ class PixelDiscriminator(nn.Module):
         self.net = nn.Sequential(*self.net)
 
         self.classifier = nn.Sequential(
-            nn.Linear(35*35, 512),
+            nn.Linear(361, 512),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(512, 256),

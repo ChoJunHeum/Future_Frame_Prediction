@@ -95,13 +95,20 @@ try:
 
         for indice, clips in train_dataloader:
 
-            frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 12, 256, 256) 
-            f_target = clips[:, 12:15, :, :].cuda()  # (n, 12, 256, 256) 
+            frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 3, 256, 256) 
+            f_target = clips[:, 12:15, :, :].cuda()  # (n, 3, 256, 256) 
 
             f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
+            # print(((f_input[0]+1)/2).shape)
+            # save_image(((f_input[0]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_1.png')
+            # save_image(((f_input[1]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_2.png')
+            # save_image(((f_input[2]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_3.png')
+            # save_image(((f_input[3]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_4.png')
+            # quit()
+
 
             # pop() the used frame index, this can't work in train_dataset.__getitem__ because of multiprocessing.
             for index in indice:
@@ -125,9 +132,9 @@ try:
             d_f_out_d, _ = discriminator(FG_frame.detach())
             D_fl = discriminate_loss(d_ft, d_f_out_d)
             
-            print("discriminator out: ", torch.mean(d_f_out), torch.max(d_f_out))
+            # print("discriminator out: ", torch.mean(d_f_out), torch.max(d_f_out))
             _, predicted = torch.max(d_f_score, 1)
-            print("anomaly: ", predicted)
+            # print("anomaly: ", predicted)
 
             # Backward
             b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
@@ -246,11 +253,11 @@ try:
                     torch.save(model_dict, f'weights/{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
                     print(f'\nAlready saved: \'{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
 
-                if step % train_cfg.val_interval == 0:
-                    val_psnr = val(train_cfg, model=generator)
-                    print("Val Score: ",val_psnr)
-                    writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
-                    generator.train()
+                # if step % train_cfg.val_interval == 0:
+                #     val_psnr = val(train_cfg, model=generator)
+                #     print("Val Score: ",val_psnr)
+                #     writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
+                #     generator.train()
                     
 
             step += 1

@@ -14,7 +14,7 @@ from model.pix2pix_networks import PixelDiscriminator
 
 from config import update_config
 from Dataset import Label_loader
-from util import psnr_error
+from util import psnr_error, psnr_error_ft
 import Dataset
 from model.unet import UNet
 
@@ -51,8 +51,10 @@ def val(cfg, model=None):
     TT = ToTensor()
 
     fps = 0
-    psnr_group = []
-    psnr_sum = []
+    psnr_group_mean = []
+    psnr_group_max = []
+    psnr_group_min = []
+
     save_group = []
     score_group = []
 
@@ -60,7 +62,10 @@ def val(cfg, model=None):
         for i, folder in enumerate(video_folders):
             dataset = Dataset.test_dataset(cfg, folder)
 
-            psnrs = []
+            psnrs_mean = []
+            psnrs_max = []
+            psnrs_min = []
+            
             dis_scores = []
             save_data = []
             for j, clip in enumerate(dataset):
@@ -85,19 +90,17 @@ def val(cfg, model=None):
                 img_3 = to_pil_image(frame_3)
                 img_4 = to_pil_image(frame_4)
                 img_t = to_pil_image(f_target)
-                img_1.save(f'crop_imgs/tester.png')
+                img_1.save(f'crop_imgs/tester_eval.png')
 
                 results = yolo_model(img_1)
                 areas = results.xyxy[0]
                 
-                print(areas)
-
                 new_areas = []
                 for _, area in enumerate(areas):
                     
                     area = area.tolist()
 
-                    if area[4] >0.6:
+                    if area[4] >0.5:
 
                         xmin = area[0]
                         ymin = area[1]
@@ -111,6 +114,18 @@ def val(cfg, model=None):
                         ymin = ymin - (n_y-1)*(ymax-ymin)
                         xmax = xmax + (n_x-1)*(xmax-xmin)
                         ymax = ymax + (n_y-1)*(ymax-ymin)
+
+                        if(xmin < 0):
+                            xmin = 0
+
+                        if(ymin < 0):
+                            ymin = 0
+
+                        if(xmax > 256):
+                            xmax = 256
+
+                        if(ymax > 256):
+                            ymax = 256
 
                         new_areas.append([xmin, ymin, xmax, ymax])
                 
@@ -156,13 +171,23 @@ def val(cfg, model=None):
 
                     f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
                     G_frame = generator(f_input)
-                    d_out, d_score = discriminator(G_frame)
-                    psnr = psnr_error(G_frame, f_target).cpu().detach().numpy()
+                    save_image(tframe_1, f'img_test/gndk_img.jpg')
 
+                    for n, f in enumerate(G_frame):
+                        save_image(f, f'img_test/{n}_img.jpg')
+
+                    # quit()
+
+                    d_out, d_score = discriminator(G_frame)
+                    psnr = psnr_error_ft(G_frame, f_target).cpu().detach()
+                    # print(type(psnr))
                 else:
                     d_score = torch.Tensor([0])
                 
-                psnrs.append(float(psnr))
+                psnrs_mean.append(torch.mean(psnr))
+                psnrs_max.append(torch.max(psnr))
+                psnrs_min.append(torch.min(psnr))
+                
                 save_data.append(d_score.cpu().detach().numpy())
                 dis_scores.append((torch.min(d_score)).cpu().detach().numpy())
 
@@ -175,8 +200,10 @@ def val(cfg, model=None):
 
             # break
 
-            psnr_group.append(np.array(psnrs))
-            psnr_sum.append(sum(psnrs)/len(psnrs))
+            psnr_group_mean.append(np.array(psnrs_mean))
+            psnr_group_min.append(np.array(psnrs_min))
+            psnr_group_max.append(np.array(psnrs_max))
+            
 
             score_group.append(np.array(dis_scores))
 
@@ -195,51 +222,87 @@ def val(cfg, model=None):
     print(len(gt))
 
 
-    assert len(psnr_group) == len(gt), f'Ground truth has {len(gt)} videos, but got {len(psnr_group)} detected videos.'
+    assert len(psnr_group_mean) == len(gt), f'Ground truth has {len(gt)} videos, but got {len(psnr_group)} detected videos.'
 
-    scores = np.array([], dtype=np.float32)
+    scores_mean = np.array([], dtype=np.float32)
+    scores_max = np.array([], dtype=np.float32)
+    scores_min = np.array([], dtype=np.float32)
+    
     labels = np.array([], dtype=np.int8)
     saves = np.array([], dtype=np.float32)
     d_scores = np.array([], dtype=np.float32)
-    psnr_source = np.array([], dtype=np.float32)
+    psnr_source_mean = np.array([], dtype=np.float32)
+    psnr_source_min = np.array([], dtype=np.float32)
+    psnr_source_max = np.array([], dtype=np.float32)
+    
 
-    for i in range(len(psnr_group)):
-        distance = psnr_group[i]
+    for i in range(len(psnr_group_mean)):
+        distance_mean = psnr_group_mean[i]
+        psnr_mean = psnr_group_mean[i]
+
+        distance_min = psnr_group_min[i]
+        psnr_min = psnr_group_min[i]
+        
+        distance_max = psnr_group_max[i]
+        psnr_max = psnr_group_max[i]
+        
+
         test_save = save_group[i]
-        psnr = psnr_group[i]
         d_score = score_group[i]
 
-        distance -= min(distance)  # distance = (distance - min) / (max - min)
-        distance /= max(distance)
+        distance_mean -= min(distance_mean)  # distance = (distance - min) / (max - min)
+        distance_mean /= max(distance_mean)
+        
+        distance_min -= min(distance_min)  # distance = (distance - min) / (max - min)
+        distance_min /= max(distance_min)
+        
+        distance_max -= min(distance_max)  # distance = (distance - min) / (max - min)
+        distance_max /= max(distance_max)
+        
         
         saves = np.concatenate((saves, test_save), axis=0)
 
-        scores = np.concatenate((scores, distance), axis=0)
+        scores_mean = np.concatenate((scores_mean, distance_mean), axis=0)
+        scores_min = np.concatenate((scores_min, distance_min), axis=0)
+        scores_max = np.concatenate((scores_max, distance_max), axis=0)
+        
         d_scores = np.concatenate((d_scores, d_score), axis=0)
         labels = np.concatenate((labels, gt[i][4:]), axis=0)  # Exclude the first 4 unpredictable frames in gt.
-        psnr_source = np.concatenate((psnr_source, psnr), axis=0)  # Exclude the first 4 unpredictable frames in gt.
+        psnr_source_mean = np.concatenate((psnr_source_mean, psnr_mean), axis=0)  # Exclude the first 4 unpredictable frames in gt.
+        psnr_source_min = np.concatenate((psnr_source_min, psnr_min), axis=0)  # Exclude the first 4 unpredictable frames in gt.
+        psnr_source_max = np.concatenate((psnr_source_max, psnr_max), axis=0)  # Exclude the first 4 unpredictable frames in gt.
 
-    print("scores: ",scores[:100])
-    print("labels: ",labels[:100])
+    # print("scores: ",scores[:100])
+    # print("labels: ",labels[:100])
     np.save("scores/score_discriminator_60", saves)
-    np.save("scores/psnr_60", psnr_source)
+    np.save("scores/psnr_60_mean", psnr_source_mean)
+    np.save("scores/psnr_60_min", psnr_source_min)
+    np.save("scores/psnr_60_max", psnr_source_max)
     
 
 
-    assert scores.shape == labels.shape, \
-        f'Ground truth has {labels.shape[0]} frames, but got {scores.shape[0]} detected frames.'
+    assert scores_mean.shape == labels.shape, \
+        f'Ground truth has {labels.shape[0]} frames, but got {scores_mean.shape[0]} detected frames.'
 
-    fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=0)
+    fpr_mean, tpr_mean, thresholds = metrics.roc_curve(labels, scores_mean, pos_label=0)
+    fpr_min, tpr_min, thresholds = metrics.roc_curve(labels, scores_min, pos_label=0)
+    fpr_max, tpr_max, thresholds = metrics.roc_curve(labels, scores_max, pos_label=0)
+    
     fpr_s, tpr_s, thresholds_s = metrics.roc_curve(labels, d_scores, pos_label=0)
 
-    auc = metrics.auc(fpr, tpr)
+    auc_mean = metrics.auc(fpr_mean, tpr_mean)
+    auc_max = metrics.auc(fpr_max, tpr_max)
+    auc_min = metrics.auc(fpr_min, tpr_min)
+    
     auc_s = metrics.auc(fpr_s, tpr_s)
 
-    print(f'AUC: {auc}\n')
+    print(f'AUC: {auc_mean}\n')
+    print(f'AUC: {auc_max}\n')
+    print(f'AUC: {auc_min}\n')
+    
     print(f'AUC_d: {auc_s}\n')
     
-    print(f"PSNR: {np.round(sum(psnr_sum)/len(psnr_sum),2)}")
-    return auc
+    return auc_mean
 
 
 if __name__ == '__main__':

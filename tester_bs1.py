@@ -125,134 +125,174 @@ try:
             areas = results.xyxy[0]
             
             res_dat = results.pandas().xyxy
-            img_1.save(f'crop_imgs/tester.png')
 
             new_areas = []
 
             for i, area in enumerate(areas):
                 area = area.tolist()
 
-                xmin = area[0]
-                ymin = area[1]
-                xmax = area[2]
-                ymax = area[3]
+                if area[4] > 0.6:
+
+                    xmin = area[0]
+                    ymin = area[1]
+                    xmax = area[2]
+                    ymax = area[3]
+                        
+                    n_x = 1.5
+                    n_y = 1.2
+
+                    xmin = xmin - (n_x-1)*(xmax-xmin)
+                    ymin = ymin - (n_y-1)*(ymax-ymin)
+                    xmax = xmax + (n_x-1)*(xmax-xmin)
+                    ymax = ymax + (n_y-1)*(ymax-ymin)
+
+                    if(xmin < 0):
+                        xmin = 0
+
+                    if(ymin < 0):
+                        ymin = 0
+
+                    if(xmax > 256):
+                        xmax = 256
+
+                    if(ymax > 256):
+                        ymax = 256
                     
-                n_x = 2
-                n_y = 1.5
 
-                xmin = xmin - (n_x-1)*(xmax-xmin)
-                ymin = ymin - (n_y-1)*(ymax-ymin)
-                xmax = xmax + (n_x-1)*(xmax-xmin)
-                ymax = ymax + (n_y-1)*(ymax-ymin)
+                    new_areas.append([xmin, ymin, xmax, ymax])
 
-                new_areas.append([xmin, ymin, xmax, ymax])
+                    # print(xmin, ymin, xmax, ymax)
+                    # print(img_1.size)
+                    # quit()
             
-            tframe_1 = torch.Tensor([])
-            tframe_2 = torch.Tensor([])
-            tframe_3 = torch.Tensor([])
-            tframe_4 = torch.Tensor([])
-            tframe_t = torch.Tensor([])
-            
-            for i, area in enumerate(new_areas):
-                crop_img_1 = TT(img_1.crop(area).resize((256,256))).view([1,3,256,256])
-                crop_img_2 = TT(img_2.crop(area).resize((256,256))).view([1,3,256,256])
-                crop_img_3 = TT(img_3.crop(area).resize((256,256))).view([1,3,256,256])
-                crop_img_4 = TT(img_4.crop(area).resize((256,256))).view([1,3,256,256])
-                crop_img_t = TT(img_t.crop(area).resize((256,256))).view([1,3,256,256])
-
-                # crop_img_1_save = ((crop_img_1[0]+1)/2)[(2,1,0),...]
-                # crop_img_2_save = ((crop_img_2[0]+1)/2)[(2,1,0),...]
-                # crop_img_3_save = ((crop_img_3[0]+1)/2)[(2,1,0),...]
-                # crop_img_4_save = ((crop_img_4[0]+1)/2)[(2,1,0),...]
-                # crop_img_t_save = ((crop_img_t[0]+1)/2)[(2,1,0),...]
-
-                # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
-                # save_image(crop_img_2,f'crop_imgs/tester_2_{i}.png')
-                # save_image(crop_img_3,f'crop_imgs/tester_3_{i}.png')
-                # save_image(crop_img_4,f'crop_imgs/tester_4_{i}.png')
-                # save_image(crop_img_t,f'crop_imgs/tester_t_{i}.png')
-
-
-                tframe_1 = torch.cat([tframe_1,crop_img_1],0)
-                tframe_2 = torch.cat([tframe_2,crop_img_2],0)
-                tframe_3 = torch.cat([tframe_3,crop_img_3],0)
-                tframe_4 = torch.cat([tframe_4,crop_img_4],0)
-                tframe_t = torch.cat([tframe_t,crop_img_t],0)
+            if len(new_areas)!=0:
+                tframe_1 = torch.Tensor([])
+                tframe_2 = torch.Tensor([])
+                tframe_3 = torch.Tensor([])
+                tframe_4 = torch.Tensor([])
+                tframe_t = torch.Tensor([])
                 
-            bs_size = len(tframe_1)
+                for i, area in enumerate(new_areas):
+                    crop_img_1 = (TT(img_1.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_2 = (TT(img_2.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_3 = (TT(img_3.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_4 = (TT(img_4.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_t = (TT(img_t.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
 
-            frame_1 = tframe_1.cuda()
-            frame_2 = tframe_2.cuda()
-            frame_3 = tframe_3.cuda()
-            frame_4 = tframe_4.cuda()
-            f_target = tframe_t.cuda()
-
-
-            f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
-            FG_frame = generator(f_input)
-
-            inte_fl = intensity_loss(FG_frame, f_target)
-            grad_fl = gradient_loss(FG_frame, f_target)
-            d_f_out, d_f_score = discriminator(FG_frame)
-            g_fl = adversarial_loss(d_f_out)
-            G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
-
-            # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            d_ft, d_ft_s = discriminator(f_target)
-            d_f_out_d, d_f_score_d = discriminator(FG_frame.detach())
-            D_fl = discriminate_loss(d_ft, d_f_out_d)
-            D_fl_s = discriminate_loss(d_ft_s, d_f_score_d)
-            
-            _, predicted = torch.max(d_f_score, 1)
-
-            # Backward
-            b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
-            b_target = frame_1
-
-            BG_frame = generator(b_input)
-
-            inte_bl = intensity_loss(BG_frame, b_target)
-            grad_bl = gradient_loss(BG_frame, b_target)
-            d_b_out, d_b_score = discriminator(BG_frame) 
-            g_bl = adversarial_loss(d_b_out)
-            G_bl_t = 1. * inte_bl + 1. * grad_bl + 0.05 * g_bl
-
-            # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            d_b_t, d_bt_s = discriminator(b_target)
-            d_b_out_d, d_b_score_d = discriminator(BG_frame.detach())
-            D_bl = discriminate_loss(d_b_t, d_b_out_d)
-            D_bl_s = discriminate_loss(d_bt_s, d_b_score_d)
-
-            # Total Loss
-            inte_l = inte_fl + inte_bl
-            grad_l = grad_fl + grad_bl
-
-            g_l = g_fl + g_bl
-            G_l_t = G_fl_t + G_bl_t
-
-            D_l = D_fl + D_bl + D_fl_s + D_bl_s
-
-            # Or just do .step() after all the gradients have been computed, like the following way:
-            optimizer_G.zero_grad()
-            G_l_t.backward()
-            optimizer_G.step()
-            
-            optimizer_D.zero_grad()
-            D_l.backward()
-            optimizer_D.step()
+                    # print(torch.min(crop_img_1))
+                    # print(torch.max(crop_img_1))
+                    
+                    # quit()
+                    # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
+                    # save_image(crop_img_2,f'crop_imgs/tester_2_{i}.png')
+                    # save_image(crop_img_3,f'crop_imgs/tester_3_{i}.png')
+                    # save_image(crop_img_4,f'crop_imgs/tester_4_{i}.png')
+                    # save_image(crop_img_t,f'crop_imgs/tester_t_{i}.png')
 
 
-            torch.cuda.synchronize()
-            time_end = time.time()
-            if step > start_iter:  # This doesn't include the testing time during training.
-                iter_t = time_end - temp
-            temp = time_end
+                    tframe_1 = torch.cat([tframe_1,crop_img_1],0)
+                    tframe_2 = torch.cat([tframe_2,crop_img_2],0)
+                    tframe_3 = torch.cat([tframe_3,crop_img_3],0)
+                    tframe_4 = torch.cat([tframe_4,crop_img_4],0)
+                    tframe_t = torch.cat([tframe_t,crop_img_t],0)
+                
+                # for i, frames in enumerate(tframe_1):
+                #     save_image(frames,f'crop_imgs/tester_1_{i}.png')
+                # for i, frames in enumerate(tframe_2):
+                #     save_image(frames,f'crop_imgs/tester_2_{i}.png')
+                # for i, frames in enumerate(tframe_3):
+                #     save_image(frames,f'crop_imgs/tester_3_{i}.png')
+                # for i, frames in enumerate(tframe_4):
+                #     save_image(frames,f'crop_imgs/tester_4_{i}.png')
+                # for i, frames in enumerate(tframe_t):
+                #     save_image(frames,f'crop_imgs/tester_t_{i}.png')
+                if step % 20 == 0:
+                    img_1.save(f'crop_imgs/tester.png')
+                    save_image(((tframe_1+1)/2),f'crop_imgs/tester_cat_11.png')
+                    # print(areas)
+                    # save_image(((tframe_2+1)/2),f'crop_imgs/tester_cat_22.png')
+                    # save_image(((tframe_3+1)/2),f'crop_imgs/tester_cat_33.png')
+                    # save_image(((tframe_4+1)/2),f'crop_imgs/tester_cat_44.png')
 
-            temp_FG_frame = ((FG_frame[0] + 1 ) / 2)
-            temp_FT_frame = ((f_target[0] + 1 ) / 2)
+                bs_size = len(tframe_1)
+                frame_1 = tframe_1.cuda()
+                frame_2 = tframe_2.cuda()
+                frame_3 = tframe_3.cuda()
+                frame_4 = tframe_4.cuda()
+                f_target = tframe_t.cuda()
 
-            temp_BG_frame = ((BG_frame[0] + 1 ) / 2)
-            temp_BT_frame = ((b_target[0] + 1 ) / 2)
+
+                f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
+                # print(torch.min(f_input[0])) # torch.Size([3, 12, 256, 256])
+                # print(torch.max(f_input[0])) # torch.Size([3, 12, 256, 256])
+                # print(f_input.shape) # torch.Size([3, 12, 256, 256])
+                # print(f_input[0].shape) # torch.Size([3, 12, 256, 256])
+                
+                
+                FG_frame = generator(f_input)
+
+                inte_fl = intensity_loss(FG_frame, f_target)
+                grad_fl = gradient_loss(FG_frame, f_target)
+                d_f_out, d_f_score = discriminator(FG_frame)
+                g_fl = adversarial_loss(d_f_out)
+                G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
+
+                # When training discriminator, don't train generator, so use .detach() to cut off gradients.
+                d_ft, d_ft_s = discriminator(f_target)
+                d_f_out_d, d_f_score_d = discriminator(FG_frame.detach())
+                D_fl = discriminate_loss(d_ft, d_f_out_d)
+                D_fl_s = discriminate_loss(d_ft_s, d_f_score_d)
+                
+                _, predicted = torch.max(d_f_score, 1)
+
+                # Backward
+                b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
+                b_target = frame_1
+
+                BG_frame = generator(b_input)
+
+                inte_bl = intensity_loss(BG_frame, b_target)
+                grad_bl = gradient_loss(BG_frame, b_target)
+                d_b_out, d_b_score = discriminator(BG_frame) 
+                g_bl = adversarial_loss(d_b_out)
+                G_bl_t = 1. * inte_bl + 1. * grad_bl + 0.05 * g_bl
+
+                # When training discriminator, don't train generator, so use .detach() to cut off gradients.
+                d_b_t, d_bt_s = discriminator(b_target)
+                d_b_out_d, d_b_score_d = discriminator(BG_frame.detach())
+                D_bl = discriminate_loss(d_b_t, d_b_out_d)
+                D_bl_s = discriminate_loss(d_bt_s, d_b_score_d)
+
+                # Total Loss
+                inte_l = inte_fl + inte_bl
+                grad_l = grad_fl + grad_bl
+
+                g_l = g_fl + g_bl
+                G_l_t = G_fl_t + G_bl_t
+
+                D_l = D_fl + D_bl + D_fl_s + D_bl_s
+
+                # Or just do .step() after all the gradients have been computed, like the following way:
+                optimizer_G.zero_grad()
+                G_l_t.backward()
+                optimizer_G.step()
+                
+                optimizer_D.zero_grad()
+                D_l.backward()
+                optimizer_D.step()
+
+
+                torch.cuda.synchronize()
+                time_end = time.time()
+                if step > start_iter:  # This doesn't include the testing time during training.
+                    iter_t = time_end - temp
+                temp = time_end
+
+                temp_FG_frame = ((FG_frame[0] + 1 ) / 2)
+                temp_FT_frame = ((f_target[0] + 1 ) / 2)
+
+                temp_BG_frame = ((BG_frame[0] + 1 ) / 2)
+                temp_BT_frame = ((b_target[0] + 1 ) / 2)
                 
 
             if step != start_iter:
@@ -277,15 +317,15 @@ try:
                         f"| G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | D_fl_s: {D_fl_s:.3f} | D_bl_s: {D_bl_s:.3f} | "
                         f"| f_psnr: {f_psnr:.3f} | b_psnr: {b_psnr:.3f} | ETA: {eta} | iter: {iter_t:.3f}s")
 
-                    save_FG_frame = ((FG_frame[0] + 1) / 2)
-                    save_FG_frame = save_FG_frame.cpu().detach()[(2, 1, 0), ...]
-                    save_F_target = ((f_target[0] + 1) / 2)
-                    save_F_target = save_F_target.cpu().detach()[(2, 1, 0), ...]
+                    # save_FG_frame = ((FG_frame[0] + 1) / 2)
+                    # save_FG_frame = save_FG_frame.cpu().detach()[(2, 1, 0), ...]
+                    # save_F_target = ((f_target[0] + 1) / 2)
+                    # save_F_target = save_F_target.cpu().detach()[(2, 1, 0), ...]
 
-                    save_BG_frame = ((BG_frame[0] + 1) / 2)
-                    save_BG_frame = save_BG_frame.cpu().detach()[(2, 1, 0), ...]
-                    save_B_target = ((b_target[0] + 1) / 2)
-                    save_B_target = save_B_target.cpu().detach()[(2, 1, 0), ...]
+                    # save_BG_frame = ((BG_frame[0] + 1) / 2)
+                    # save_BG_frame = save_BG_frame.cpu().detach()[(2, 1, 0), ...]
+                    # save_B_target = ((b_target[0] + 1) / 2)
+                    # save_B_target = save_B_target.cpu().detach()[(2, 1, 0), ...]
 
                     writer.add_scalar('psnr/forward/train_psnr', f_psnr, global_step=step)
                     writer.add_scalar('total_loss/forward/g_loss_total', G_fl_t, global_step=step)
@@ -303,26 +343,27 @@ try:
                     writer.add_scalar('G_loss_total/backward/inte_loss', inte_bl, global_step=step)
                     writer.add_scalar('G_loss_total/backward/grad_loss', grad_bl, global_step=step)
 
-                if step % 1000 == 0:
-                    save_image(save_FG_frame, f'training_imgs/{data_name}/{step}_FG_frame.png')
-                    save_image(save_F_target, f'training_imgs/{data_name}/{step}_FT_frame_.png')
+                # if step % 1000 == 0:
+                #     save_image(save_FG_frame, f'training_imgs/{data_name}/{step}_FG_frame.png')
+                #     save_image(save_F_target, f'training_imgs/{data_name}/{step}_FT_frame_.png')
                     
-                    save_image(save_BG_frame, f'training_imgs/{data_name}/{step}_BG_frame_.png')
-                    save_image(save_B_target, f'training_imgs/{data_name}/{step}_BT_frame_.png')
+                #     save_image(save_BG_frame, f'training_imgs/{data_name}/{step}_BG_frame_.png')
+                #     save_image(save_B_target, f'training_imgs/{data_name}/{step}_BT_frame_.png')
 
-                if step % int(train_cfg.iters / 100) == 0:
-                    writer.add_image('image/FG_frame', save_FG_frame, global_step=step)
-                    writer.add_image('image/f_target', save_F_target, global_step=step)
+                # if step % int(train_cfg.iters / 100) == 0:
+                #     writer.add_image('image/FG_frame', save_FG_frame, global_step=step)
+                #     writer.add_image('image/f_target', save_F_target, global_step=step)
+                #     print()
 
-                    writer.add_image('image/BG_frame', save_BG_frame, global_step=step)
-                    writer.add_image('image/b_target', save_B_target, global_step=step)
+                #     writer.add_image('image/BG_frame', save_BG_frame, global_step=step)
+                #     writer.add_image('image/b_target', save_B_target, global_step=step)
 
 
                 if step % train_cfg.save_interval == 0:
                     model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                 'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
-                    print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
+                    torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth')
+                    print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth\'.')
 
                 if step % train_cfg.val_interval == 0:
                     val_psnr = val(train_cfg, model=generator)
