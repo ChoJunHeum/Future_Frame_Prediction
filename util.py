@@ -42,6 +42,8 @@ def psnr_error(gen_frames, gt_frames):
     @return: A scalar tensor. The mean Peak Signal to Noise Ratio error over each frame in the
              batch.
     """
+
+    # print("gen_frames: ", gen_frames.shape)
     shape = list(gen_frames.shape)
     # print("shape: ", shape)
     num_pixels = (shape[1] * shape[2] * shape[3])
@@ -78,7 +80,6 @@ def psnr_error_ft(gen_frames, gt_frames):
     # print("square_diff: ", square_diff.shape)
     batch_errors = 10 * log10(1. / ((1. / num_pixels) * torch.sum(square_diff, [1, 2, 3])))
     # print("batch_errors: ", batch_errors)
-
     return batch_errors
 
 def weights_init_normal(m):

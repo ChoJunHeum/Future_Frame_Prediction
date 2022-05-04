@@ -15,6 +15,7 @@ from util import psnr_error
 import Dataset
 from model.unet import UNet
 from model.convLSTM_networks import ConvLstmGenerator
+from model.vgg16_unet import *
 
 from torchvision.utils import save_image
 from fid_score import *
@@ -31,7 +32,7 @@ def val(cfg, model=None):
         generator = model
         generator.eval()
     else:
-        generator = ConvLstmGenerator().cuda().eval()
+        generator = vgg16bn_unet().cuda().eval()
         generator.load_state_dict(torch.load('weights/' + cfg.trained_model)['net_g'])
         print(f'The pre-trained generator has been loaded from \'weights/{cfg.trained_model}\'.\n')
 
@@ -118,6 +119,23 @@ def val(cfg, model=None):
     fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=0)
     auc = metrics.auc(fpr, tpr)
     print(f'AUC: {auc}\n')
+
+    d_size = [1435, 1207, 919, 943, 1003, 1279, 601, 32, 1171, 837, 468, 1267, 545, 503, 997, 736, 422, 290, 244, 269, 72]
+
+    cur_point = 0
+    cur_iter = 1
+
+    for d in d_size:
+
+        plt.plot(range(d), scores[cur_point:cur_point+d])
+        plt.savefig(f'scores/{cur_iter}_max_graph.png')
+
+        plt.clf()
+
+        cur_point += d
+        cur_iter += 1    
+
+
     return auc
 
 

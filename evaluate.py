@@ -9,6 +9,7 @@ import io
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from model.vgg16_unet import *
+from model.pix2pix_networks import PixelDiscriminator
 
 from config import update_config
 from Dataset import Label_loader
@@ -31,6 +32,8 @@ def val(cfg, model=None):
         generator = vgg16bn_unet().cuda()
         generator.load_state_dict(torch.load('weights/' + cfg.trained_model)['net_g'])
         print(f'The pre-trained generator has been loaded from \'weights/{cfg.trained_model}\'.\n')
+
+    discriminator = PixelDiscriminator(input_nc=3).cuda()
 
     video_folders = os.listdir(cfg.test_data)
     video_folders.sort()
@@ -104,10 +107,9 @@ def val(cfg, model=None):
 
     gt_loader = Label_loader(cfg, video_folders)  # Get gt labels.
     gt = gt_loader()
+    print(len(gt))
 
     assert len(psnr_group) == len(gt), f'Ground truth has {len(gt)} videos, but got {len(psnr_group)} detected videos.'
-
-    print("psnr_group: ",len(psnr_group))
 
     scores = np.array([], dtype=np.float32)
     labels = np.array([], dtype=np.int8)

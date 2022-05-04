@@ -1,3 +1,4 @@
+from curses import doupdate
 import os
 from glob import glob
 import cv2
@@ -27,8 +28,8 @@ from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--batch_size', default=4, type=int)
-parser.add_argument('--model', default='ConvLSTM', type=str)
-parser.add_argument('--dataset', default='CalTech', type=str, help='The name of the dataset to train.')
+parser.add_argument('--model', default='vgg16bn_unet', type=str)
+parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
 parser.add_argument('--resume', default=None, type=str,
                     help='The pre-trained model to resume training with, pass \'latest\' or the model name.')
@@ -94,13 +95,20 @@ try:
 
         for indice, clips in train_dataloader:
 
-            frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 12, 256, 256) 
-            frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 12, 256, 256) 
-            f_target = clips[:, 12:15, :, :].cuda()  # (n, 12, 256, 256) 
+            frame_1 = clips[:, 0:3, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_2 = clips[:, 3:6, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_3 = clips[:, 6:9, :, :].cuda()  # (n, 3, 256, 256) 
+            frame_4 = clips[:, 9:12, :, :].cuda()  # (n, 3, 256, 256) 
+            f_target = clips[:, 12:15, :, :].cuda()  # (n, 3, 256, 256) 
 
             f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
+            # print(((f_input[0]+1)/2).shape)
+            # save_image(((f_input[0]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_1.png')
+            # save_image(((f_input[1]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_2.png')
+            # save_image(((f_input[2]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_3.png')
+            # save_image(((f_input[3]+1)/2)[(2,1,0),...],f'crop_imgs/tester_cat_4.png')
+            # quit()
+
 
             # pop() the used frame index, this can't work in train_dataset.__getitem__ because of multiprocessing.
             for index in indice:
@@ -111,17 +119,22 @@ try:
 
             # Forward
             FG_frame = generator(f_input)
-            # print(f_input.shape)
-            # print(FG_frame.shape)
+
 
             inte_fl = intensity_loss(FG_frame, f_target)
             grad_fl = gradient_loss(FG_frame, f_target)
-
-            g_fl = adversarial_loss(discriminator(FG_frame))
+            d_f_out, d_f_score = discriminator(FG_frame)
+            g_fl = adversarial_loss(d_f_out)
             G_fl_t = 1. * inte_fl + 1. * grad_fl + 0.05 * g_fl
 
             # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            D_fl = discriminate_loss(discriminator(f_target), discriminator(FG_frame.detach()))
+            d_ft, _ = discriminator(f_target)
+            d_f_out_d, _ = discriminator(FG_frame.detach())
+            D_fl = discriminate_loss(d_ft, d_f_out_d)
+            
+            # print("discriminator out: ", torch.mean(d_f_out), torch.max(d_f_out))
+            _, predicted = torch.max(d_f_score, 1)
+            # print("anomaly: ", predicted)
 
             # Backward
             b_input = torch.cat([FG_frame.detach(), frame_4, frame_3, frame_2], 1)
@@ -131,12 +144,14 @@ try:
 
             inte_bl = intensity_loss(BG_frame, b_target)
             grad_bl = gradient_loss(BG_frame, b_target)
-
-            g_bl = adversarial_loss(discriminator(BG_frame))
+            d_b_out, d_b_score = discriminator(BG_frame) 
+            g_bl = adversarial_loss(d_b_out)
             G_bl_t = 1. * inte_bl + 1. * grad_bl + 0.05 * g_bl
 
             # When training discriminator, don't train generator, so use .detach() to cut off gradients.
-            D_bl = discriminate_loss(discriminator(b_target), discriminator(BG_frame.detach()))
+            d_b_t, _ = discriminator(b_target)
+            d_b_out_d, _ = discriminator(BG_frame.detach())
+            D_bl = discriminate_loss(d_b_t, d_b_out_d)
 
             # Total Loss
             inte_l = inte_fl + inte_bl
@@ -238,11 +253,11 @@ try:
                     torch.save(model_dict, f'weights/{train_cfg.model}_{train_cfg.dataset}_{step}.pth')
                     print(f'\nAlready saved: \'{train_cfg.model}_{train_cfg.dataset}_{step}.pth\'.')
 
-                if step % train_cfg.val_interval == 0:
-                    val_psnr = val(train_cfg, model=generator)
-                    print("Val Score: ",val_psnr)
-                    writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
-                    generator.train()
+                # if step % train_cfg.val_interval == 0:
+                #     val_psnr = val(train_cfg, model=generator)
+                #     print("Val Score: ",val_psnr)
+                #     writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
+                #     generator.train()
                     
 
             step += 1
