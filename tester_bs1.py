@@ -315,7 +315,6 @@ try:
 
                         psnr = (f_psnr + b_psnr)/2
 
-
                         lr_g = optimizer_G.param_groups[0]['lr']
                         lr_d = optimizer_D.param_groups[0]['lr']
 
