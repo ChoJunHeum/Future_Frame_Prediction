@@ -123,6 +123,7 @@ try:
 
             results = yolo_model(img_1)
             areas = results.xyxy[0]
+            # print(areas)
             
             res_dat = results.pandas().xyxy
 
@@ -194,6 +195,7 @@ try:
                     tframe_2 = torch.cat([tframe_2,crop_img_2],0)
                     tframe_3 = torch.cat([tframe_3,crop_img_3],0)
                     tframe_4 = torch.cat([tframe_4,crop_img_4],0)
+                    # print("crop: ", crop_img_t.shape)
                     tframe_t = torch.cat([tframe_t,crop_img_t],0)
                 
                 # for i, frames in enumerate(tframe_1):
@@ -295,81 +297,86 @@ try:
                 temp_BT_frame = ((b_target[0] + 1 ) / 2)
                 
 
-            if step != start_iter:
-                if step % 20 == 0:
-                    time_remain = (train_cfg.iters - step) * iter_t
-                    eta = str(datetime.timedelta(seconds=time_remain)).split('.')[0]
+                if step != start_iter:
+                    if step % 20 == 0:
+                        time_remain = (train_cfg.iters - step) * iter_t
+                        eta = str(datetime.timedelta(seconds=time_remain)).split('.')[0]
 
-                    # print(FG_frame.shape, f_target.shape)
-                    # print(BG_frame.shape, b_target.shape)
-                    
-                    f_psnr = psnr_error(FG_frame, f_target)
-                    b_psnr = psnr_error(BG_frame, b_target)
+                        # print(FG_frame.shape, f_target.shape)
+                        # print(BG_frame.shape, b_target.shape)
 
-                    psnr = (f_psnr + b_psnr)/2
+                        # print("FG: ",FG_frame.shape)
+                        # print("FT: " ,f_target.shape)
+                        # print("BG: ",BG_frame.shape)
+                        # print("BT: " ,b_target.shape)
+                        
+                        f_psnr = psnr_error(FG_frame, f_target)
+                        b_psnr = psnr_error(BG_frame, b_target)
 
-
-                    lr_g = optimizer_G.param_groups[0]['lr']
-                    lr_d = optimizer_D.param_groups[0]['lr']
-
-
-                    print(f"[{step}]  grad_fl: {grad_fl:.3f} | grad_bl: {grad_bl:.3f} | g_fl: {g_fl:.3f} | g_bl: {g_bl:.3f} "
-                        f"| G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | D_fl_s: {D_fl_s:.3f} | D_bl_s: {D_bl_s:.3f} | "
-                        f"| f_psnr: {f_psnr:.3f} | b_psnr: {b_psnr:.3f} | ETA: {eta} | iter: {iter_t:.3f}s")
-
-                    # save_FG_frame = ((FG_frame[0] + 1) / 2)
-                    # save_FG_frame = save_FG_frame.cpu().detach()[(2, 1, 0), ...]
-                    # save_F_target = ((f_target[0] + 1) / 2)
-                    # save_F_target = save_F_target.cpu().detach()[(2, 1, 0), ...]
-
-                    # save_BG_frame = ((BG_frame[0] + 1) / 2)
-                    # save_BG_frame = save_BG_frame.cpu().detach()[(2, 1, 0), ...]
-                    # save_B_target = ((b_target[0] + 1) / 2)
-                    # save_B_target = save_B_target.cpu().detach()[(2, 1, 0), ...]
-
-                    writer.add_scalar('psnr/forward/train_psnr', f_psnr, global_step=step)
-                    writer.add_scalar('total_loss/forward/g_loss_total', G_fl_t, global_step=step)
-                    writer.add_scalar('total_loss/forward/d_loss', D_fl, global_step=step)
-                    writer.add_scalar('G_loss_total/forward/g_loss', g_fl, global_step=step)
-
-                    writer.add_scalar('G_loss_total/forward/inte_loss', inte_fl, global_step=step)
-                    writer.add_scalar('G_loss_total/forward/grad_loss', grad_fl, global_step=step)
-
-                    writer.add_scalar('psnr/backward/train_psnr', b_psnr, global_step=step)
-                    writer.add_scalar('total_loss/backward/g_loss_total', G_bl_t, global_step=step)
-                    writer.add_scalar('total_loss/backward/d_loss', D_bl, global_step=step)
-                    writer.add_scalar('G_loss_total/backward/g_loss', g_bl, global_step=step)
-
-                    writer.add_scalar('G_loss_total/backward/inte_loss', inte_bl, global_step=step)
-                    writer.add_scalar('G_loss_total/backward/grad_loss', grad_bl, global_step=step)
-
-                # if step % 1000 == 0:
-                #     save_image(save_FG_frame, f'training_imgs/{data_name}/{step}_FG_frame.png')
-                #     save_image(save_F_target, f'training_imgs/{data_name}/{step}_FT_frame_.png')
-                    
-                #     save_image(save_BG_frame, f'training_imgs/{data_name}/{step}_BG_frame_.png')
-                #     save_image(save_B_target, f'training_imgs/{data_name}/{step}_BT_frame_.png')
-
-                # if step % int(train_cfg.iters / 100) == 0:
-                #     writer.add_image('image/FG_frame', save_FG_frame, global_step=step)
-                #     writer.add_image('image/f_target', save_F_target, global_step=step)
-                #     print()
-
-                #     writer.add_image('image/BG_frame', save_BG_frame, global_step=step)
-                #     writer.add_image('image/b_target', save_B_target, global_step=step)
+                        psnr = (f_psnr + b_psnr)/2
 
 
-                if step % train_cfg.save_interval == 0:
-                    model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
-                                'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                    torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth')
-                    print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth\'.')
+                        lr_g = optimizer_G.param_groups[0]['lr']
+                        lr_d = optimizer_D.param_groups[0]['lr']
 
-                if step % train_cfg.val_interval == 0:
-                    val_psnr = val(train_cfg, model=generator)
-                    print("Val Score: ",val_psnr)
-                    writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
-                    generator.train()
+
+                        print(f"[{step}]  grad_fl: {grad_fl:.3f} | grad_bl: {grad_bl:.3f} | g_fl: {g_fl:.3f} | g_bl: {g_bl:.3f} "
+                            f"| G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | D_fl_s: {D_fl_s:.3f} | D_bl_s: {D_bl_s:.3f} | "
+                            f"| f_psnr: {f_psnr:.3f} | b_psnr: {b_psnr:.3f} | ETA: {eta} | iter: {iter_t:.3f}s")
+
+                        # save_FG_frame = ((FG_frame[0] + 1) / 2)
+                        # save_FG_frame = save_FG_frame.cpu().detach()[(2, 1, 0), ...]
+                        # save_F_target = ((f_target[0] + 1) / 2)
+                        # save_F_target = save_F_target.cpu().detach()[(2, 1, 0), ...]
+
+                        # save_BG_frame = ((BG_frame[0] + 1) / 2)
+                        # save_BG_frame = save_BG_frame.cpu().detach()[(2, 1, 0), ...]
+                        # save_B_target = ((b_target[0] + 1) / 2)
+                        # save_B_target = save_B_target.cpu().detach()[(2, 1, 0), ...]
+
+                        writer.add_scalar('psnr/forward/train_psnr', f_psnr, global_step=step)
+                        writer.add_scalar('total_loss/forward/g_loss_total', G_fl_t, global_step=step)
+                        writer.add_scalar('total_loss/forward/d_loss', D_fl, global_step=step)
+                        writer.add_scalar('G_loss_total/forward/g_loss', g_fl, global_step=step)
+
+                        writer.add_scalar('G_loss_total/forward/inte_loss', inte_fl, global_step=step)
+                        writer.add_scalar('G_loss_total/forward/grad_loss', grad_fl, global_step=step)
+
+                        writer.add_scalar('psnr/backward/train_psnr', b_psnr, global_step=step)
+                        writer.add_scalar('total_loss/backward/g_loss_total', G_bl_t, global_step=step)
+                        writer.add_scalar('total_loss/backward/d_loss', D_bl, global_step=step)
+                        writer.add_scalar('G_loss_total/backward/g_loss', g_bl, global_step=step)
+
+                        writer.add_scalar('G_loss_total/backward/inte_loss', inte_bl, global_step=step)
+                        writer.add_scalar('G_loss_total/backward/grad_loss', grad_bl, global_step=step)
+
+                    # if step % 1000 == 0:
+                    #     save_image(save_FG_frame, f'training_imgs/{data_name}/{step}_FG_frame.png')
+                    #     save_image(save_F_target, f'training_imgs/{data_name}/{step}_FT_frame_.png')
+                        
+                    #     save_image(save_BG_frame, f'training_imgs/{data_name}/{step}_BG_frame_.png')
+                    #     save_image(save_B_target, f'training_imgs/{data_name}/{step}_BT_frame_.png')
+
+                    # if step % int(train_cfg.iters / 100) == 0:
+                    #     writer.add_image('image/FG_frame', save_FG_frame, global_step=step)
+                    #     writer.add_image('image/f_target', save_F_target, global_step=step)
+                    #     print()
+
+                    #     writer.add_image('image/BG_frame', save_BG_frame, global_step=step)
+                    #     writer.add_image('image/b_target', save_B_target, global_step=step)
+
+
+                    if step % train_cfg.save_interval == 0:
+                        model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
+                                    'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
+                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth')
+                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth\'.')
+
+                    if step % train_cfg.val_interval == 0:
+                        val_psnr = val(train_cfg, model=generator)
+                        print("Val Score: ",val_psnr)
+                        writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
+                        generator.train()
                     
 
             step += 1
