@@ -106,8 +106,6 @@ try:
                 if len(train_dataset.all_seqs[index]) == 0:
                     train_dataset.all_seqs[index] = list(range(len(train_dataset.videos[index]) - 4))
                     random.shuffle(train_dataset.all_seqs[index])
-            # Forward
-            # FG_frame = generator(f_input)
             
             frame_1 = ((frame_1[0] + 1 ) / 2)[(2,1,0),...]
             frame_2 = ((frame_2[0] + 1 ) / 2)[(2,1,0),...]
@@ -162,9 +160,6 @@ try:
 
                     new_areas.append([xmin, ymin, xmax, ymax])
 
-                    # print(xmin, ymin, xmax, ymax)
-                    # print(img_1.size)
-                    # quit()
             
             if len(new_areas)!=0:
                 tframe_1 = torch.Tensor([])
@@ -180,10 +175,7 @@ try:
                     crop_img_4 = (TT(img_4.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
                     crop_img_t = (TT(img_t.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
 
-                    # print(torch.min(crop_img_1))
-                    # print(torch.max(crop_img_1))
                     
-                    # quit()
                     # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
                     # save_image(crop_img_2,f'crop_imgs/tester_2_{i}.png')
                     # save_image(crop_img_3,f'crop_imgs/tester_3_{i}.png')
@@ -195,7 +187,6 @@ try:
                     tframe_2 = torch.cat([tframe_2,crop_img_2],0)
                     tframe_3 = torch.cat([tframe_3,crop_img_3],0)
                     tframe_4 = torch.cat([tframe_4,crop_img_4],0)
-                    # print("crop: ", crop_img_t.shape)
                     tframe_t = torch.cat([tframe_t,crop_img_t],0)
                 
                 # for i, frames in enumerate(tframe_1):
