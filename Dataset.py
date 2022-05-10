@@ -7,6 +7,7 @@ import os
 import time
 import scipy.io as scio
 from torch.utils.data import Dataset
+from PIL import Image
 
 
 def np_load_frame(filename, resize_h, resize_w):
@@ -14,6 +15,7 @@ def np_load_frame(filename, resize_h, resize_w):
     image_resized = cv2.resize(img, (resize_w, resize_h)).astype('float32')
     image_resized = (image_resized / 127.5) - 1.0  # to -1 ~ 1
     image_resized = np.transpose(image_resized, [2, 0, 1])  # to (C, W, H)
+    # image_resized: np.ndarray
     return image_resized
 
 
@@ -31,7 +33,7 @@ class train_dataset(Dataset):
         self.videos = []
         self.all_seqs = []
         for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
-            all_imgs = glob.glob(f'{folder}/*.png')
+            all_imgs = glob.glob(f'{folder}/*.jpg')
             all_imgs.sort()
             self.videos.append(all_imgs)
 
@@ -43,6 +45,7 @@ class train_dataset(Dataset):
         return len(self.videos)
 
     def __getitem__(self, indice):  # Indice decide which video folder to be loaded.
+
         one_folder = self.videos[indice]
 
         video_clip = []
@@ -60,6 +63,49 @@ class train_dataset(Dataset):
 
         return indice, video_clip
 
+
+class train_target_dataset(Dataset):
+    """
+    No data augmentation.
+    Normalized from [0, 255] to [-1, 1], the channels are BGR due to cv2 and liteFlownet.
+    """
+
+    def __init__(self, cfg):
+        self.img_h = cfg.img_size[0] # 256
+        self.img_w = cfg.img_size[1] # 256
+        self.clip_length = 5
+
+        self.videos = []
+        self.all_seqs = []
+        for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
+            all_imgs = glob.glob(f'{folder}/*.jpg')
+            all_imgs.sort()
+            self.videos.append(all_imgs)
+
+            random_seq = list(range(len(all_imgs) - 4))
+            self.all_seqs.append(random_seq)
+
+    def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
+        return len(self.videos)
+
+    def __getitem__(self, indice):  # Indice decide which video folder to be loaded.
+
+        one_folder = self.videos[indice]
+
+        video_clip = []
+
+        start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+
+        start = 0
+
+        for i in range(start, start + self.clip_length):
+            img = cv2.imread(one_folder[i])
+ 
+            video_clip.append(img)
+
+        return indice, video_clip
+
+
 class ft_dataset:
     def __init__(self, cfg):
         self.img_h = cfg.img_size[0] # 256
@@ -69,12 +115,12 @@ class ft_dataset:
         self.videos = []
         self.all_seqs = []
         for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
-            all_imgs = glob.glob(f'{folder}/*.png')
+            all_imgs = glob.glob(f'{folder}/*.jpg')
             all_imgs.sort()
             self.videos.append(all_imgs)
 
             random_seq = list(range(len(all_imgs) - 4))
-            # random.shuffle(random_seq)
+            random.shuffle(random_seq)
             self.all_seqs.append(random_seq)
         
     def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
@@ -98,6 +144,41 @@ class ft_dataset:
         # print("Video:",len(video_clip))
 
         return indice, video_clip, target_pos
+
+
+class ms_dataset:
+    def __init__(self, cfg):
+        self.img_h = cfg.img_size[0] # 256
+        self.img_w = cfg.img_size[1] # 256
+        self.clip_length = 9
+
+        self.videos = []
+        self.all_seqs = []
+        for folder in sorted(glob.glob(f'{cfg.train_data}/*')):
+            all_imgs = glob.glob(f'{folder}/*.jpg')
+            all_imgs.sort()
+            self.videos.append(all_imgs)
+
+            random_seq = list(range(len(all_imgs) - 4))
+            self.all_seqs.append(random_seq)
+        
+    def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
+        return len(self.videos)
+
+    def __getitem__(self, indice):  # Indice decide which video folder to be loaded.
+        one_folder = self.videos[indice]
+
+        video_clip = []
+        start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+        start = 0
+
+        for i in range(start, start + self.clip_length):
+            video_clip.append(np_load_frame(one_folder[i], self.img_h, self.img_w))
+
+        video_clip = np.array(video_clip).reshape((-1, self.img_h, self.img_w))
+        video_clip = torch.from_numpy(video_clip)
+
+        return indice, video_clip
 
 class test_dataset:
     def __init__(self, cfg, video_folder):

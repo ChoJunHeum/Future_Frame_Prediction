@@ -11,16 +11,18 @@ import matplotlib.pyplot as plt
 
 from ft_config import update_config
 from Dataset import Label_loader
-from utils import psnr_error
+from util import psnr_error
 import Dataset
-from models.unet import UNet
+from model.unet import UNet
+from model.vgg16_unet import *
+from model.convLSTM_networks import ConvLstmGenerator
 
 from torchvision.utils import save_image
 from fid_score import *
 
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
-parser.add_argument('--trained_model', default=None, type=str, help='The pre-trained model to evaluate.')
+parser.add_argument('--model', default=None, type=str, help='The pre-trained model to evaluate.')
 parser.add_argument('--fid', default=False, type=bool, help='Check FID Score')
 
 def val(cfg, model=None):
@@ -28,9 +30,9 @@ def val(cfg, model=None):
         generator = model
         generator.eval()
     else:
-        generator = UNet(input_channels=12, output_channel=3).cuda().eval()
-        generator.load_state_dict(torch.load('weights/' + cfg.trained_model)['net_g'])
-        print(f'The pre-trained generator has been loaded from \'weights/{cfg.trained_model}\'.\n')
+        generator = ConvLstmGenerator().cuda().eval()
+        generator.load_state_dict(torch.load('weights/' + cfg.model)['net_g'])
+        print(f'The pre-trained generator has been loaded from \'weights/{cfg.model}\'.\n')
 
     video_folders = os.listdir(cfg.test_data)
     video_folders.sort()
@@ -53,7 +55,7 @@ def val(cfg, model=None):
             save_num = 0
 
             for j, clip in enumerate(dataset):
-                if(j == 10):
+                if(j == 100):
                     break
                 input_np = clip[0:12, :, :]
                 target_np = clip[12:15, :, :]
@@ -67,22 +69,6 @@ def val(cfg, model=None):
                 save_image(res_temp, f'results/{dataset_name}/f{i+1}/{save_num}_img.jpg')
                 save_num=save_num+1
 
-                fid_num = 0
-
-                # for g, t in zip(G_frame, target_frame):
-                #     save_image(g, f'fid_img/avenue/gen/{fid_num}_gen_img.jpg')
-                #     save_image(t, f'fid_img/avenue/tar/{fid_num}_tar_img.jpg')
-
-                #     fid_num=fid_num+1
-
-                #     fid = calculate_fid_given_paths(
-                #         paths=['fid_img/avenue/gen', 'fid_img/avenue/tar'],
-                #         batch_size=1,
-                #         device='cuda',
-                #         dims=2048
-                #     )
-                #     print("FID Score: ", fid)
-
                 torch.cuda.synchronize()
                 end = time.time()
                 if j > 1:  # Compute fps by calculating the time used in one completed iteration, this is more accurate.
@@ -90,7 +76,7 @@ def val(cfg, model=None):
                 temp = end
                 print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(dataset)}, {fps:.2f} fps, PSNR: {sum(psnrs)/len(psnrs):.2f}', end='')
 
-            psnr_group.append(np.array(psnrs))
+            psnr_group.append(sum(psnrs)/len(psnrs))
 
     return np.round(sum(psnr_group)/len(psnr_group),2)
 

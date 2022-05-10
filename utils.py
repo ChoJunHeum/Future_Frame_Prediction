@@ -3,8 +3,21 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 from math import exp
+import torch.nn as nn
 
 import matplotlib as plt
+
+def ft_save_img(data_name, step, iter, G_frame, target, img_sav_interval):
+
+    if step % img_sav_interval == 0:
+        save_G_frame = ((G_frame[0] + 1) / 2)
+        save_G_frame = save_G_frame.cpu().detach()[(2, 1, 0), ...]
+        save_target = ((target[0] + 1) / 2)
+        save_target = save_target.cpu().detach()[(2, 1, 0), ...]
+
+        save_image(save_G_frame, f'finetuning_imgs/{data_name}/{step}_{iter}_G_frame.png')
+        save_image(save_target, f'finetuning_imgs/{data_name}/{step}_{iter}_T_frame_.png')
+
 
 def log10(t):
     """
@@ -71,8 +84,11 @@ def psnr_error_ft(gen_frames, gt_frames):
 def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
+        # print(m)
+    # if isinstance(m, nn.Conv2d):
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
+    # if isinstance(m, nn.BatchNorm2d):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
 

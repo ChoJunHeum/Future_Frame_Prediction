@@ -79,10 +79,13 @@ class UNet(nn.Module):
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x = self.up1(x4, x3)
+        print("conv1: ",x.shape)
         x = self.up2(x, x2)
+        print("conv2: ",x.shape)
         x = self.up3(x, x1)
+        print("conv3: ",x.shape)
         x = self.outc(x)
-
+        print("conv4: ",x.shape)
         return torch.tanh(x)
 
 
@@ -94,3 +97,5 @@ def _test():
     print(r.shape)
     print(r.grad_fn)
     print(r.requires_grad)
+
+_test()

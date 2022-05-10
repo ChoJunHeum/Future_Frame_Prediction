@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
 from PIL import Image
-from utils import *
+from util import *
 from torch.autograd import Variable
 from losses import *
 
@@ -40,7 +40,7 @@ class Env():
         ssim_score = msssim(input, target)
 
         if answer:
-            reward = torch.mul(cor, 2)
+            reward = torch.mul(cor, 1.6)
             true_cor = true_cor + sum(action == answer).item()
 
         else:
@@ -51,7 +51,7 @@ class Env():
 
         # print(action)
         # print(true_cor, total_cor, false_cor)
-        reward = reward - 1
+        reward = reward - (reward/2)
 
         return reward, cor_sum, total_len, psnr, true_cor, false_cor, cor
 

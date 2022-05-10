@@ -11,7 +11,7 @@ if not os.path.exists('results'):
     os.mkdir('results')
 
 share_config = {'mode': 'training',
-                'dataset': 'avenue',
+                'dataset': 'CalTech',
                 'img_size': (256, 256),
                 'data_root': '/home/chojh21c/ADGW/Future_Frame_Prediction/datasets/'}  # remember the final '/'
 
@@ -34,6 +34,7 @@ def update_config(args=None, mode=None):
     share_config['dataset'] = args.dataset
 
     if mode == 'train':
+        share_config['model'] = args.model
         share_config['batch_size'] = args.batch_size
         share_config['train_data'] = share_config['data_root'] + args.dataset + '/training/'
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
@@ -44,6 +45,8 @@ def update_config(args=None, mode=None):
         share_config['iters'] = args.iters
         share_config['save_interval'] = args.save_interval
         share_config['val_interval'] = args.val_interval
+        share_config['input_size'] = args.input_size
+        
 
     elif mode == 'test':
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
