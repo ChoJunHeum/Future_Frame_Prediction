@@ -138,11 +138,11 @@ def val(cfg, model=None):
                     tframe_t = torch.Tensor([])
                     
                     for k, area in enumerate(new_areas):
-                        crop_img_1 = TT(img_1.crop(area).resize((64,64))).view([1,3,64,64])
-                        crop_img_2 = TT(img_2.crop(area).resize((64,64))).view([1,3,64,64])
-                        crop_img_3 = TT(img_3.crop(area).resize((64,64))).view([1,3,64,64])
-                        crop_img_4 = TT(img_4.crop(area).resize((64,64))).view([1,3,64,64])
-                        crop_img_t = TT(img_t.crop(area).resize((64,64))).view([1,3,64,64])
+                        crop_img_1 = TT(img_1.crop(area).resize((32,32))).view([1,3,21,32])
+                        crop_img_2 = TT(img_2.crop(area).resize((32,32))).view([1,3,21,32])
+                        crop_img_3 = TT(img_3.crop(area).resize((32,32))).view([1,3,21,32])
+                        crop_img_4 = TT(img_4.crop(area).resize((32,32))).view([1,3,21,32])
+                        crop_img_t = TT(img_t.crop(area).resize((32,32))).view([1,3,21,32])
 
                         tframe_1 = torch.cat([tframe_1,crop_img_1],0)
                         tframe_2 = torch.cat([tframe_2,crop_img_2],0)

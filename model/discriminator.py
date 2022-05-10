@@ -62,11 +62,11 @@ class discriminator(nn.Module):
 
         return x
 
-def _test():
-    rand = torch.ones([4, 12, 256, 256]).cuda()
-    t = discriminator().cuda()
+# def _test():
+#     rand = torch.ones([4, 12, 256, 256]).cuda()
+#     t = discriminator().cuda()
 
-    r = t(rand)
-    print(r)
+#     r = t(rand)
+#     print(r)
 
-_test()
+# _test()

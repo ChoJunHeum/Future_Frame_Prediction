@@ -3,6 +3,26 @@ import functools
 import torch
 
 
+# def classifier(x):
+
+#     i_size = x.shape[1]
+
+#     return nn.Sequential(
+#         nn.Linear(i_size, 512),
+#         nn.ReLU(),
+#         nn.Dropout(0.5),
+#         nn.Linear(512, 256),
+#         nn.ReLU(),
+#         nn.Dropout(0.5),
+#         nn.Linear(256, 128),
+#         nn.ReLU(),
+#         nn.Dropout(0.5),
+#         nn.Linear(128, 32),
+#         nn.ReLU(),
+#         nn.Dropout(0.5),
+#         nn.Linear(32, 1),
+#     )
+
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
 
@@ -59,9 +79,13 @@ class PixelDiscriminator(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(32, 1),
         )
+
+
+
     def forward(self, input):
         out = self.net(input)
         s_out = out.view(out.size(0), -1)
+        # print(s_out.shape)
         score = self.classifier(s_out)
 
         out = torch.sigmoid(out)

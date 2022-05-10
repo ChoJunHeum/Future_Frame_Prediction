@@ -130,7 +130,7 @@ try:
             for i, area in enumerate(areas):
                 area = area.tolist()
 
-                if area[4] > 0.6:
+                if area[4] > 0.6 and area[5]==0:
 
                     xmin = area[0]
                     ymin = area[1]
@@ -160,8 +160,9 @@ try:
 
                     new_areas.append([xmin, ymin, xmax, ymax])
 
-            print(new_areas)
-            exit()
+            # print(new_areas)
+            # exit()
+            
             if len(new_areas)!=0:
                 tframe_1 = torch.Tensor([])
                 tframe_2 = torch.Tensor([])
@@ -170,11 +171,11 @@ try:
                 tframe_t = torch.Tensor([])
                 
                 for i, area in enumerate(new_areas):
-                    crop_img_1 = (TT(img_1.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_2 = (TT(img_2.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_3 = (TT(img_3.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_4 = (TT(img_4.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_t = (TT(img_t.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_1 = (TT(img_1.crop(area).resize((64,64))).view([1,3,64,64])*2)-1
+                    crop_img_2 = (TT(img_2.crop(area).resize((64,64))).view([1,3,64,64])*2)-1
+                    crop_img_3 = (TT(img_3.crop(area).resize((64,64))).view([1,3,64,64])*2)-1
+                    crop_img_4 = (TT(img_4.crop(area).resize((64,64))).view([1,3,64,64])*2)-1
+                    crop_img_t = (TT(img_t.crop(area).resize((64,64))).view([1,3,64,64])*2)-1
 
                     
                     # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
@@ -360,8 +361,8 @@ try:
                     if step % train_cfg.save_interval == 0:
                         model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                     'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth')
-                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth\'.')
+                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize64_{step}.pth')
+                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize64_{step}.pth\'.')
 
                     if step % train_cfg.val_interval == 0:
                         val_psnr = val(train_cfg, model=generator)

@@ -38,9 +38,11 @@ parser.add_argument('--batch_size', default=1, type=int)
 parser.add_argument('--model', default='vgg16bn_unet', type=str)
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
+parser.add_argument('--input_size', default=128, type=int, help='The img size.')
+
 parser.add_argument('--resume', default=None, type=str,
                     help='The pre-trained model to resume training with, pass \'latest\' or the model name.')
-parser.add_argument('--save_interval', default=10000, type=int, help='Save the model every [save_interval] iterations.')
+parser.add_argument('--save_interval', default=30000, type=int, help='Save the model every [save_interval] iterations.')
 parser.add_argument('--val_interval', default=10000, type=int,
                     help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
 
@@ -52,7 +54,7 @@ train_cfg.print_cfg()
 
 yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True).cuda()
 
-generator = vgg16bn_unet().cuda()
+generator = UNet(12).cuda()
 discriminator = PixelDiscriminator(input_nc=3).cuda()
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.g_lr)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
@@ -86,8 +88,8 @@ generator = generator.train()
 discriminator = discriminator.train()
 fid_s=30
 earlyFlag = False
-
-data_name = args.dataset
+input_size = train_cfg.input_size
+data_name = train_cfg.dataset
 TT = ToTensor()
 
 try:
@@ -121,7 +123,6 @@ try:
 
             results = yolo_model(img_1)
             areas = results.xyxy[0]
-            # print(areas)
             
             res_dat = results.pandas().xyxy
 
@@ -130,7 +131,7 @@ try:
             for i, area in enumerate(areas):
                 area = area.tolist()
 
-                if area[4] > 0.6:
+                if area[4] > 0.6 and area[5]==0:
 
                     xmin = area[0]
                     ymin = area[1]
@@ -160,8 +161,9 @@ try:
 
                     new_areas.append([xmin, ymin, xmax, ymax])
 
-            print(new_areas)
-            exit()
+            # print(new_areas)
+            # exit()
+            
             if len(new_areas)!=0:
                 tframe_1 = torch.Tensor([])
                 tframe_2 = torch.Tensor([])
@@ -170,11 +172,11 @@ try:
                 tframe_t = torch.Tensor([])
                 
                 for i, area in enumerate(new_areas):
-                    crop_img_1 = (TT(img_1.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_2 = (TT(img_2.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_3 = (TT(img_3.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_4 = (TT(img_4.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
-                    crop_img_t = (TT(img_t.crop(area).resize((128,128))).view([1,3,128,128])*2)-1
+                    crop_img_1 = (TT(img_1.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
+                    crop_img_2 = (TT(img_2.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
+                    crop_img_3 = (TT(img_3.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
+                    crop_img_4 = (TT(img_4.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
+                    crop_img_t = (TT(img_t.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
 
                     
                     # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
@@ -360,8 +362,8 @@ try:
                     if step % train_cfg.save_interval == 0:
                         model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                     'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth')
-                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{step}.pth\'.')
+                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{step}.pth')
+                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_128_{step}.pth\'.')
 
                     if step % train_cfg.val_interval == 0:
                         val_psnr = val(train_cfg, model=generator)

@@ -45,6 +45,8 @@ def update_config(args=None, mode=None):
         share_config['iters'] = args.iters
         share_config['save_interval'] = args.save_interval
         share_config['val_interval'] = args.val_interval
+        share_config['input_size'] = args.input_size
+        
 
     elif mode == 'test':
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
