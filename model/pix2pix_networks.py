@@ -3,25 +3,6 @@ import functools
 import torch
 
 
-# def classifier(x):
-
-#     i_size = x.shape[1]
-
-#     return nn.Sequential(
-#         nn.Linear(i_size, 512),
-#         nn.ReLU(),
-#         nn.Dropout(0.5),
-#         nn.Linear(512, 256),
-#         nn.ReLU(),
-#         nn.Dropout(0.5),
-#         nn.Linear(256, 128),
-#         nn.ReLU(),
-#         nn.Dropout(0.5),
-#         nn.Linear(128, 32),
-#         nn.ReLU(),
-#         nn.Dropout(0.5),
-#         nn.Linear(32, 1),
-#     )
 
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
@@ -64,21 +45,21 @@ class PixelDiscriminator(nn.Module):
         self.net.append(nn.Conv2d(num_filters[-1], 1, 4, 1, 2))
         self.net = nn.Sequential(*self.net)
 
-        self.classifier = nn.Sequential(
-            nn.Linear(361, 512),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(128, 32),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(32, 1),
-        )
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(1225, 512),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(512, 256),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(256, 128),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(128, 32),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(32, 1),
+        # )
 
 
 
@@ -86,8 +67,8 @@ class PixelDiscriminator(nn.Module):
         out = self.net(input)
         s_out = out.view(out.size(0), -1)
         # print(s_out.shape)
-        score = self.classifier(s_out)
+        # score = self.classifier(s_out)
 
         out = torch.sigmoid(out)
-        score = torch.sigmoid(score)
-        return out, score
+        # score = torch.sigmoid(score)
+        return out

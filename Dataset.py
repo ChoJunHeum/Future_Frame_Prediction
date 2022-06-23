@@ -38,7 +38,7 @@ class train_dataset(Dataset):
             self.videos.append(all_imgs)
 
             random_seq = list(range(len(all_imgs) - 4))
-            # random.shuffle(random_seq)
+            random.shuffle(random_seq)
             self.all_seqs.append(random_seq)
 
     def __len__(self):  # This decide the indice range of the PyTorch Dataloader.
@@ -61,7 +61,9 @@ class train_dataset(Dataset):
         # print(video_clip)
         video_clip = torch.from_numpy(video_clip)
 
-        return indice, video_clip
+        flow_str = f'{indice}_{start + 3}-{start + 4}'
+
+        return indice, video_clip, flow_str
 
 
 class train_target_dataset(Dataset):

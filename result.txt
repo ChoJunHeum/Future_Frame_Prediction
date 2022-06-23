@@ -3,3 +3,34 @@ mean: 61.0
 max: 53.3
 min: 62.4
 dicriminator score: 50.3
+
+Avenue Unet 128
+AUC_mean: 0.6408361361802395
+AUC_max: 0.5534743307382315
+AUC_min: 0.7041852853305767
+AUC_d: 0.695466133216806
+
+
+target_vgg16bn_unet_avenue_resize_128_90000.pth
+AUC_mean: 0.716758390310589
+AUC_max: 0.5728807727237515
+AUC_min: 0.7602233623471503
+AUC_d: 0.5760395931812698
+
+
+target_vgg16bn_unet_avenue_resize_256_90000.pth
+AUC_mean: 0.6153450715131549
+AUC_max: 0.5213564689879402
+AUC_min: 0.6987936235861019
+AUC_d: 0.5633645881999594
+
+target_vgg16bn_unet_avenue_resize_256_180000.pth (target threshold 0.4)
+AUC_mean: 0.7541162632288383
+AUC_max: 0.637872873228281
+AUC_min: 0.7771203903210029
+
+
+target_vgg16bn_unet_avenue_resize_256_180000.pth (all target)
+AUC_mean: 0.7554596197114235
+AUC_max: 0.655286188478599
+AUC_min: 0.751392339652907

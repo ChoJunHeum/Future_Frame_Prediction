@@ -9,3 +9,6 @@ images
 *.jpg
 training_imgs
 datasets
+finetuning_imgs
+weights
+crop_imgs
