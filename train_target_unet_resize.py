@@ -27,7 +27,7 @@ from model.pix2pix_networks import PixelDiscriminator
 # from models.liteFlownet import lite_flownet as lite_flow
 from config import update_config
 # from models.flownet2.models import FlowNet2SD
-from evaluate_ft import val
+from evaluate_target import val
 from torchvision.utils import save_image
 from torchvision.transforms.functional import to_pil_image
 from torchvision.transforms import ToTensor
@@ -37,7 +37,7 @@ parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--batch_size', default=1, type=int)
 parser.add_argument('--model', default='vgg16bn_unet', type=str)
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
-parser.add_argument('--iters', default=60000, type=int, help='The total iteration number.')
+parser.add_argument('--iters', default=91000, type=int, help='The total iteration number.')
 parser.add_argument('--input_size', default=128, type=int, help='The img size.')
 
 parser.add_argument('--resume', default=None, type=str,
@@ -54,7 +54,14 @@ train_cfg.print_cfg()
 
 yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True).cuda()
 
-generator = UNet(12).cuda()
+
+if train_cfg.model == 'vgg16bn_unet':
+    generator = vgg16bn_unet().cuda()
+
+elif train_cfg.model == 'UNet':
+    generator = UNet(12).cuda()
+
+
 discriminator = PixelDiscriminator(input_nc=3).cuda()
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=train_cfg.g_lr)
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=train_cfg.d_lr)
@@ -66,7 +73,7 @@ if train_cfg.resume:
     optimizer_D.load_state_dict(torch.load(train_cfg.resume)['optimizer_d'])
     print(f'Pre-trained generator and discriminator have been loaded.\n')
 else:
-    # generator.apply(weights_init_normal)
+    generator.apply(weights_init_normal)
     discriminator.apply(weights_init_normal)
     print('Generator and discriminator are going to be trained from scratch.\n')
 
@@ -81,16 +88,20 @@ train_dataset = Dataset.train_dataset(train_cfg)
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=train_cfg.batch_size,
                               shuffle=True, num_workers=4, drop_last=True)
 
-writer = SummaryWriter(f'tensorboard_log/{train_cfg.model}_{train_cfg.dataset}_bs{train_cfg.batch_size}')
+input_size = train_cfg.input_size
+
+writer = SummaryWriter(f'tensorboard_log/target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{train_cfg.iters}')
 start_iter = int(train_cfg.resume.split('_')[-1].split('.')[0]) if train_cfg.resume else 0
 training = True
 generator = generator.train()
 discriminator = discriminator.train()
 fid_s=30
 earlyFlag = False
-input_size = train_cfg.input_size
 data_name = train_cfg.dataset
 TT = ToTensor()
+
+print(f'Train Info: target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{train_cfg.iters}.pth.')
+
 
 try:
     step = start_iter
@@ -161,8 +172,6 @@ try:
 
                     new_areas.append([xmin, ymin, xmax, ymax])
 
-            # print(new_areas)
-            # exit()
             
             if len(new_areas)!=0:
                 tframe_1 = torch.Tensor([])
@@ -178,13 +187,6 @@ try:
                     crop_img_4 = (TT(img_4.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
                     crop_img_t = (TT(img_t.crop(area).resize((input_size,input_size))).view([1,3,input_size,input_size])*2)-1
 
-                    
-                    # save_image(crop_img_1,f'crop_imgs/tester_1_{i}.png')
-                    # save_image(crop_img_2,f'crop_imgs/tester_2_{i}.png')
-                    # save_image(crop_img_3,f'crop_imgs/tester_3_{i}.png')
-                    # save_image(crop_img_4,f'crop_imgs/tester_4_{i}.png')
-                    # save_image(crop_img_t,f'crop_imgs/tester_t_{i}.png')
-
 
                     tframe_1 = torch.cat([tframe_1,crop_img_1],0)
                     tframe_2 = torch.cat([tframe_2,crop_img_2],0)
@@ -192,16 +194,7 @@ try:
                     tframe_4 = torch.cat([tframe_4,crop_img_4],0)
                     tframe_t = torch.cat([tframe_t,crop_img_t],0)
                 
-                # for i, frames in enumerate(tframe_1):
-                #     save_image(frames,f'crop_imgs/tester_1_{i}.png')
-                # for i, frames in enumerate(tframe_2):
-                #     save_image(frames,f'crop_imgs/tester_2_{i}.png')
-                # for i, frames in enumerate(tframe_3):
-                #     save_image(frames,f'crop_imgs/tester_3_{i}.png')
-                # for i, frames in enumerate(tframe_4):
-                #     save_image(frames,f'crop_imgs/tester_4_{i}.png')
-                # for i, frames in enumerate(tframe_t):
-                #     save_image(frames,f'crop_imgs/tester_t_{i}.png')
+
                 if step % 20 == 0:
                     img_1.save(f'crop_imgs/tester.png')
                     save_image(((tframe_1+1)/2),f'crop_imgs/tester_cat_11.png')
@@ -219,11 +212,6 @@ try:
 
 
                 f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
-                # print(torch.min(f_input[0])) # torch.Size([3, 12, 256, 256])
-                # print(torch.max(f_input[0])) # torch.Size([3, 12, 256, 256])
-                # print(f_input.shape) # torch.Size([3, 12, 256, 256])
-                # print(f_input[0].shape) # torch.Size([3, 12, 256, 256])
-                
                 
                 FG_frame = generator(f_input)
 
@@ -295,14 +283,6 @@ try:
                     if step % 20 == 0:
                         time_remain = (train_cfg.iters - step) * iter_t
                         eta = str(datetime.timedelta(seconds=time_remain)).split('.')[0]
-
-                        # print(FG_frame.shape, f_target.shape)
-                        # print(BG_frame.shape, b_target.shape)
-
-                        # print("FG: ",FG_frame.shape)
-                        # print("FT: " ,f_target.shape)
-                        # print("BG: ",BG_frame.shape)
-                        # print("BT: " ,b_target.shape)
                         
                         f_psnr = psnr_error(FG_frame, f_target)
                         b_psnr = psnr_error(BG_frame, b_target)
@@ -316,16 +296,6 @@ try:
                         print(f"[{step}]  grad_fl: {grad_fl:.3f} | grad_bl: {grad_bl:.3f} | g_fl: {g_fl:.3f} | g_bl: {g_bl:.3f} "
                             f"| G_fl_total: {G_fl_t:.3f} | G_bl_total: {G_bl_t:.3f} | D_fl: {D_fl:.3f} | D_bl: {D_bl:.3f} | D_fl_s: {D_fl_s:.3f} | D_bl_s: {D_bl_s:.3f} | "
                             f"| f_psnr: {f_psnr:.3f} | b_psnr: {b_psnr:.3f} | ETA: {eta} | iter: {iter_t:.3f}s")
-
-                        # save_FG_frame = ((FG_frame[0] + 1) / 2)
-                        # save_FG_frame = save_FG_frame.cpu().detach()[(2, 1, 0), ...]
-                        # save_F_target = ((f_target[0] + 1) / 2)
-                        # save_F_target = save_F_target.cpu().detach()[(2, 1, 0), ...]
-
-                        # save_BG_frame = ((BG_frame[0] + 1) / 2)
-                        # save_BG_frame = save_BG_frame.cpu().detach()[(2, 1, 0), ...]
-                        # save_B_target = ((b_target[0] + 1) / 2)
-                        # save_B_target = save_B_target.cpu().detach()[(2, 1, 0), ...]
 
                         writer.add_scalar('psnr/forward/train_psnr', f_psnr, global_step=step)
                         writer.add_scalar('total_loss/forward/g_loss_total', G_fl_t, global_step=step)
@@ -343,33 +313,17 @@ try:
                         writer.add_scalar('G_loss_total/backward/inte_loss', inte_bl, global_step=step)
                         writer.add_scalar('G_loss_total/backward/grad_loss', grad_bl, global_step=step)
 
-                    # if step % 1000 == 0:
-                    #     save_image(save_FG_frame, f'training_imgs/{data_name}/{step}_FG_frame.png')
-                    #     save_image(save_F_target, f'training_imgs/{data_name}/{step}_FT_frame_.png')
-                        
-                    #     save_image(save_BG_frame, f'training_imgs/{data_name}/{step}_BG_frame_.png')
-                    #     save_image(save_B_target, f'training_imgs/{data_name}/{step}_BT_frame_.png')
-
-                    # if step % int(train_cfg.iters / 100) == 0:
-                    #     writer.add_image('image/FG_frame', save_FG_frame, global_step=step)
-                    #     writer.add_image('image/f_target', save_F_target, global_step=step)
-                    #     print()
-
-                    #     writer.add_image('image/BG_frame', save_BG_frame, global_step=step)
-                    #     writer.add_image('image/b_target', save_B_target, global_step=step)
-
-
                     if step % train_cfg.save_interval == 0:
                         model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                     'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
                         torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{step}.pth')
-                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_128_{step}.pth\'.')
+                        print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{step}.pth\'.')
 
-                    if step % train_cfg.val_interval == 0:
-                        val_psnr = val(train_cfg, model=generator)
-                        print("Val Score: ",val_psnr)
-                        writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
-                        generator.train()
+                    # if step % train_cfg.val_interval == 0:
+                    #     val_psnr = val(train_cfg, model=generator)
+                    #     print("Val Score: ",val_psnr)
+                    #     writer.add_scalar('results/val_psnr', val_psnr, global_step=step)
+                    #     generator.train()
                     
 
             step += 1
@@ -379,6 +333,7 @@ try:
                             'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
                 torch.save(model_dict, f'weights/latest_target_{train_cfg.dataset}_{step}.pth')
                 break
+
 except KeyboardInterrupt:
     print(f'\nStop early, model saved: \'latest_{train_cfg.dataset}_{step}.pth\'.\n')
 

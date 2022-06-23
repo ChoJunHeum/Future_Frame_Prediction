@@ -58,7 +58,7 @@ def psnr_error(gen_frames, gt_frames):
 
     return torch.mean(batch_errors)
 
-def psnr_error_ft(gen_frames, gt_frames):
+def psnr_error_target(gen_frames, gt_frames):
     """
     Computes the Peak Signal to Noise Ratio error between the generated images and the ground
     truth images.

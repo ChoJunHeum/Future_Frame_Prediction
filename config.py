@@ -52,5 +52,6 @@ def update_config(args=None, mode=None):
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
         share_config['trained_model'] = args.trained_model
         share_config['show_curve'] = args.show_curve
+        share_config['input_size'] = args.input_size
 
     return dict2class(share_config)  # change dict keys to class attributes
