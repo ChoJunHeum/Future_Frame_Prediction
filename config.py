@@ -46,6 +46,7 @@ def update_config(args=None, mode=None):
         share_config['save_interval'] = args.save_interval
         share_config['val_interval'] = args.val_interval
         share_config['input_size'] = args.input_size
+        # share_config['trained_model'] = args.trained_model
         
 
     elif mode == 'test':

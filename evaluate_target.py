@@ -91,25 +91,26 @@ def val(cfg, model=None, dis_model=None, iters=None):
                 #     break
                 input_np = clip[0:12, :, :]
                 target_np = clip[12:15, :, :]
-                input_frames = torch.from_numpy(input_np).unsqueeze(0).cuda()
-                f_target = torch.from_numpy(target_np).unsqueeze(0).cuda()
+                input_frames = torch.from_numpy(input_np).unsqueeze(0)
+                f_target = torch.from_numpy(target_np).unsqueeze(0)
 
-                frame_1 = input_frames[:,0:3, :, :]  # (n, 12, 256, 256) 
-                frame_2 = input_frames[:,3:6, :, :]  # (n, 12, 256, 256) 
-                frame_3 = input_frames[:,6:9, :, :]  # (n, 12, 256, 256) 
+                frame_1 = input_frames[:,0:3, :, :] # (n, 12, 256, 256) 
+                frame_2 = input_frames[:,3:6, :, :] # (n, 12, 256, 256) 
+                frame_3 = input_frames[:,6:9, :, :] # (n, 12, 256, 256) 
                 frame_4 = input_frames[:,9:12, :, :] # (n, 12, 256, 256) 
 
-                frame_1 = ((frame_1[0] + 1 ) / 2)[(2,1,0),...]
-                frame_2 = ((frame_2[0] + 1 ) / 2)[(2,1,0),...]
-                frame_3 = ((frame_3[0] + 1 ) / 2)[(2,1,0),...]
-                frame_4 = ((frame_4[0] + 1 ) / 2)[(2,1,0),...]
-                f_target = ((f_target[0] + 1 ) / 2)[(2,1,0),...]
+                frame_1_crop = ((frame_1[0] + 1 ) / 2)[(2,1,0),...]
+                frame_2_crop = ((frame_2[0] + 1 ) / 2)[(2,1,0),...]
+                frame_3_crop = ((frame_3[0] + 1 ) / 2)[(2,1,0),...]
+                frame_4_crop = ((frame_4[0] + 1 ) / 2)[(2,1,0),...]
+                f_target_crop = ((f_target[0] + 1 ) / 2)[(2,1,0),...]   
+                save_image(f_target_crop,f'crop_imgs/tester_g.png')
 
-                img_1 = to_pil_image(frame_1)
-                img_2 = to_pil_image(frame_2)
-                img_3 = to_pil_image(frame_3)
-                img_4 = to_pil_image(frame_4)
-                img_t = to_pil_image(f_target)
+                img_1 = to_pil_image(frame_1_crop)
+                img_2 = to_pil_image(frame_2_crop)
+                img_3 = to_pil_image(frame_3_crop)
+                img_4 = to_pil_image(frame_4_crop)
+                img_t = to_pil_image(f_target_crop)
                 # img_1.save(f'crop_imgs/tester_eval.png')
 
                 results = yolo_model(img_4)
@@ -120,7 +121,7 @@ def val(cfg, model=None, dis_model=None, iters=None):
                     
                     area = area.tolist()
 
-                    if area[4] >0.35 and area[5]==0:
+                    if area[4] >0.4 and area[5]==0:
                     # if area[5]==0:
                         xmin = area[0]
                         ymin = area[1]
@@ -189,11 +190,11 @@ def val(cfg, model=None, dis_model=None, iters=None):
                         # save_image(crop_img_4,f'crop_imgs/tester_4_{k}.png')
                         # save_image(crop_img_t,f'crop_imgs/tester_t_{k}.png')
 
-                    # save_image(tframe_1,f'crop_imgs/tester_1.png')
-                    # save_image(tframe_2,f'crop_imgs/tester_2.png')
-                    # save_image(tframe_3,f'crop_imgs/tester_3.png')
-                    # save_image(tframe_4,f'crop_imgs/tester_4.png')
-                    # save_image(tframe_t,f'crop_imgs/tester_t.png')
+                    tframe_1 = torch.cat([tframe_1,frame_1 ],0)
+                    tframe_2 = torch.cat([tframe_2,frame_2 ],0)
+                    tframe_3 = torch.cat([tframe_3,frame_3 ],0)
+                    tframe_4 = torch.cat([tframe_4,frame_4 ],0)
+                    tframe_t = torch.cat([tframe_t,f_target],0)
 
                     frame_1 = tframe_1.cuda()
                     frame_2 = tframe_2.cuda()
@@ -306,10 +307,10 @@ def val(cfg, model=None, dis_model=None, iters=None):
     # print("scores: ",scores[:100])
     # print("labels: ",labels[:100])
     # np.save(f"scores/score_discriminator_resize_256_{cur_step}", saves)
-    np.save(f"scores/psnr_resize_128_{cur_step}_mean", psnr_group_mean)
-    np.save(f"scores/psnr_resize_128_{cur_step}_min", psnr_group_min)
-    np.save(f"scores/psnr_resize_128_{cur_step}_max", psnr_group_max)
-    np.save(f"scores/psnr_resize_128_{cur_step}", psnr_group)
+    np.save(f"scores/psnr_resize_256_{cur_step}_mean", psnr_group_mean)
+    np.save(f"scores/psnr_resize_256_{cur_step}_min", psnr_group_min)
+    np.save(f"scores/psnr_resize_256_{cur_step}_max", psnr_group_max)
+    np.save(f"scores/psnr_resize_256_{cur_step}", psnr_group)
     np.save(f"scores/target_count", targets)
     
     

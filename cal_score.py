@@ -41,10 +41,9 @@ def val(cfg, model=None):
     gt_loader = Label_loader(cfg, video_folders)  # Get gt labels.
     gt = gt_loader()
 
-    load_score = np.load('scores/score_discriminator_resize_256_180000.npy', allow_pickle=True)
-    load_psnr_mean = np.load('scores/psnr_resize_256_180000_mean.npy', allow_pickle=True)
-    load_psnr_max = np.load('scores/psnr_resize_256_180000_max.npy', allow_pickle=True)
-    load_psnr_min = np.load('scores/psnr_resize_256_180000_min.npy', allow_pickle=True)
+    load_psnr_mean = np.load('scores/psnr_resize_256_test_mean.npy', allow_pickle=True)
+    load_psnr_max = np.load('scores/psnr_resize_256_test_max.npy', allow_pickle=True)
+    load_psnr_min = np.load('scores/psnr_resize_256_test_min.npy', allow_pickle=True)
 
     labels = np.array([], dtype=np.int8)
     d_scores = np.array([], dtype=np.float32)
