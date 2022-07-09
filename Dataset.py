@@ -49,8 +49,9 @@ class train_dataset(Dataset):
         one_folder = self.videos[indice]
 
         video_clip = []
-        #print(len(self.all_seqs), indice, len(self.all_seqs[indice]))
-        start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+        # start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+        # print(len(self.all_seqs), indice, len(self.all_seqs[indice]))
+
         # print(f"START(indice): {start}({indice})")
         start = 0
 
@@ -96,7 +97,7 @@ class train_target_dataset(Dataset):
 
         video_clip = []
 
-        start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
+        # start = self.all_seqs[indice][-1]  # Always use the last index in self.all_seqs.
 
         start = 0
 

@@ -44,7 +44,7 @@ parser.add_argument('--input_size', default=256, type=int, help='The img size.')
 parser.add_argument('--resume', default=None, type=str,
                     help='The pre-trained model to resume training with, pass \'latest\' or the model name.')
 parser.add_argument('--save_interval', default=15000, type=int, help='Save the model every [save_interval] iterations.')
-parser.add_argument('--val_interval', default=30000, type=int,
+parser.add_argument('--val_interval', default=100000, type=int,
                     help='Evaluate the model every [val_interval] iterations, pass -1 to disable.')
 
 
@@ -151,20 +151,20 @@ try:
             for i, area in enumerate(areas):
                 area = area.tolist()
 
-                if area[5]==0:
+                if area[4] > 0.4 and area[5]==0:
 
-                    xmin = area[0]
-                    ymin = area[1]
-                    xmax = area[2]
-                    ymax = area[3]
+                    xmin_ = area[0]
+                    ymin_ = area[1]
+                    xmax_ = area[2]
+                    ymax_ = area[3]
                         
                     n_x = 1.5
                     n_y = 1.2
 
-                    xmin = xmin - (n_x-1)*(xmax-xmin)
-                    ymin = ymin - (n_y-1)*(ymax-ymin)
-                    xmax = xmax + (n_x-1)*(xmax-xmin)
-                    ymax = ymax + (n_y-1)*(ymax-ymin)
+                    xmin = xmin_ - (n_x-1)*(xmax_-xmin_)
+                    ymin = ymin_ - (n_y-1)*(ymax_-ymin_)
+                    xmax = xmax_ + (n_x-1)*(xmax_-xmin_)
+                    ymax = ymax_ + (n_y-1)*(ymax_-ymin_)
 
                     x = xmax - xmin
                     y = ymax - ymin
@@ -222,9 +222,9 @@ try:
                 tframe_t = torch.cat([tframe_t,f_target],0)
 
 
-                if step % 20 == 0:
-                    img_1.save(f'crop_imgs/tester.png')
-                    save_image(((tframe_1+1)/2),f'crop_imgs/tester_cat_11.png')
+                # if step % 20 == 0:
+                #     img_1.save(f'crop_imgs/tester.png')
+                #     save_image(((tframe_1+1)/2),f'crop_imgs/tester_cat_11.png')
                     # print(areas)
                     # save_image(((tframe_2+1)/2),f'crop_imgs/tester_cat_22.png')
                     # save_image(((tframe_3+1)/2),f'crop_imgs/tester_cat_33.png')
@@ -238,7 +238,8 @@ try:
                 f_target = tframe_t.cuda()
 
                 f_input = torch.cat([frame_1,frame_2, frame_3, frame_4], 1)
-                
+                # save_image((frame_1[0]+1)/2,f'crop_imgs/VGGUNET_BASE.png')
+                # quit()
                 FG_frame = generator(f_input)
 
                 Fgt_flow_input = torch.cat([frame_4.unsqueeze(2), f_target.unsqueeze(2)], 2)
@@ -376,7 +377,7 @@ try:
                     if step % train_cfg.save_interval == 0:
                         model_dict = {'net_g': generator.state_dict(), 'optimizer_g': optimizer_G.state_dict(),
                                     'net_d': discriminator.state_dict(), 'optimizer_d': optimizer_D.state_dict()}
-                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{step}.pth')
+                        torch.save(model_dict, f'weights/target_{train_cfg.model}_{train_cfg.dataset}_FLOL_{input_size}_{step}.pth')
                         print(f'\nAlready saved: \'target_{train_cfg.model}_{train_cfg.dataset}_resize_{input_size}_{step}.pth\'.')
 
                     if step % train_cfg.val_interval == 0:
