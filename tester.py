@@ -64,7 +64,7 @@ elif train_cfg.model == 'UNet':
     generator = UNet(12).cuda()
 
 
-generator.load_state_dict(torch.load('weights/target_vgg16bn_unet_avenue_resize_256_45000.pth')['net_g'])
+generator.load_state_dict(torch.load('weights/target_vgg16bn_unet_avenue_MF_256_90000.pth')['net_g'])
 
 
 train_dataset = Dataset.train_dataset(train_cfg)
@@ -181,10 +181,10 @@ while training:
 
 
             img_1.save(f'crop_imgs/tester.png')
-            save_image(((tframe_1[0]+1)/2),f'crop_imgs/tester_cat_11.png')
-            save_image(((tframe_2[1]+1)/2),f'crop_imgs/tester_cat_22.png')
-            save_image(((tframe_3[2]+1)/2),f'crop_imgs/tester_cat_33.png')
-            save_image(((tframe_4[3]+1)/2),f'crop_imgs/tester_cat_44.png')
+            save_image(((tframe_1[0]+1)/2),f'crop_imgs/tester_mid_1.png')
+            save_image(((tframe_2[1]+1)/2),f'crop_imgs/tester_mid_2.png')
+            save_image(((tframe_3[2]+1)/2),f'crop_imgs/tester_mid_3.png')
+            save_image(((tframe_4[3]+1)/2),f'crop_imgs/tester_mid_4.png')
 
 
             frame_1 = tframe_1.cuda()
@@ -200,6 +200,6 @@ while training:
             print("f_input:",f_input.shape)
 
             FG_frame = generator(f_input)
-            save_image(((FG_frame+1)/2),f'crop_imgs/tester_res.png')
+            save_image(((FG_frame+1)/2),f'crop_imgs/tester_mid_res.png')
             print("GOOD")
             quit()
