@@ -99,7 +99,9 @@ def val(cfg, model=None):
     # fpr_mins, tpr_mins, thresholds_s = metrics.roc_curve(labels, min_scores, pos_label=0)
     # fpr_maxs, tpr_maxs, thresholds_s = metrics.roc_curve(labels, max_scores, pos_label=0)
     # fpr_means, tpr_means, thresholds_s = metrics.roc_curve(labels, mean_scores, pos_label=0)
-    
+    import math   
+    np.exp()
+    math.exp()
     
     
     d_size = [1435, 1207, 919, 943, 1003, 1279, 601, 32, 1171, 837, 468, 1267, 545, 503, 997, 736, 422, 290, 244, 269, 72]

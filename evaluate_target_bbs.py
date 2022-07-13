@@ -66,7 +66,7 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
     psnr_group_min = []
     psnr_group = []
     targets = []
-
+    bbs_group = []
     save_group = []
     score_group = []
 
@@ -83,7 +83,8 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
             psnrs_max = []
             psnrs_min = []
             psnrs = []
-            
+            patches_size = []
+
             # dis_scores = []
             save_data = []
             for j, clip in enumerate(dataset):
@@ -220,17 +221,15 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
                         patch_sizes /= max(patch_sizes)
                         patch_sizes = 1 + ((1-patch_sizes)*0.3)
                         patch_sizes = np.append(patch_sizes, 1)
-                        # print(patch_sizes)
-                        # print(psnr)
 
                         psnr = np.multiply(patch_sizes, psnr)
                     # print(psnr)
                     # quit()
                     # psnr: [target1_psnr, target2_psnr, ... , targetN_psnr]
-                # else:
-                    # d_score = torch.Tensor([])
-                # print(f'psnr: {psnr} \ttarget:{len(new_areas)} \t Anomaly: {label[j]}')
+
+
                 psnrs.append(psnr)
+                patches_size.append(patch_sizes)
                 psnrs_mean.append(torch.mean(psnr))
                 psnrs_max.append(torch.max(psnr))
                 psnrs_min.append(torch.min(psnr))
@@ -251,8 +250,13 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
                 # print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(dataset)}, {fps:.2f} fps.', end='')
                 print(f'\rDetecting: {j + 1}\t Anomaly: {label[j]} \tpsnr: {psnr}', end='\n')
 
-            # break
+            np.save(f"scores/psnrs_{i+1}", psnrs)
+            np.save(f"scores/psnrs_min_{i+1}", psnrs_min)
+            np.save(f"scores/patch_size_{i+1}", patches_size)
 
+
+            # break
+            bbs_group.append(np.array(patches_size))
             psnr_group.append(np.array(psnrs))
             psnr_group_mean.append(np.array(psnrs_mean))
             psnr_group_min.append(np.array(psnrs_min))
@@ -267,6 +271,8 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
                 if cfg.show_curve:
                     video_writer.release()
                     curve_writer.release()
+
+
 
 
     print('\nAll frames were detected, begin to compute AUC.')
@@ -324,10 +330,11 @@ def val(cfg, model=None, dis_model=None, iters=None, mul_rate=0):
     # print("scores: ",scores[:100])
     # print("labels: ",labels[:100])
     # np.save(f"scores/score_discriminator_resize_256_{cur_step}", saves)
-    np.save(f"scores/psnr_resize_256_{cur_step}_mean", psnr_group_mean)
-    np.save(f"scores/psnr_resize_256_{cur_step}_min", psnr_group_min)
-    np.save(f"scores/psnr_resize_256_{cur_step}_max", psnr_group_max)
-    np.save(f"scores/psnr_resize_256_{cur_step}", psnr_group)
+    np.save(f"scores/psnr_MF_{cur_step}_mean", psnr_group_mean)
+    np.save(f"scores/psnr_MF_{cur_step}_min", psnr_group_min)
+    np.save(f"scores/psnr_MF_{cur_step}_max", psnr_group_max)
+    np.save(f"scores/psnr_MF_{cur_step}", psnr_group)
+    np.save(f"scores/bbs_MF_{cur_step}", bbs_group)
     np.save(f"scores/target_count", targets)
     
     
